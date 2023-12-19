@@ -23,7 +23,7 @@
 # Raspi based firewall
 
 GO_VERSION = 1.19
-PACKAGE_ROOT = e4jet.net/eric/pirewall
+PACKAGE_ROOT = github.com/e4jet/pirewall
 ##PLATFORM = linux/arm/v6
 TAG = 1.0.0
 
@@ -85,5 +85,5 @@ all: clean pirewall; $(info $(A1) all)
 
 .PHONY: rsync
 rsync: ; $(info $(A1) $@)
-	rsync -e ssh -urlt ~/Library/Mobile\ Documents/com~apple~CloudDocs/repos/e4jet.net/eric/ tom:go/src/e4jet.net/eric/
+	rsync -e ssh -urlt ~/go/src/github.com/e4jet/pirewall/ tom:go/src/github.com/e4jet/pirewall/
 	@echo "$(S0)"
