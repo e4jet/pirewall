@@ -22,7 +22,7 @@
 #
 # Raspi based firewall
 
-GO_VERSION = 1.19
+GO_VERSION = 1.20
 PACKAGE_ROOT = github.com/e4jet/pirewall
 ##PLATFORM = linux/arm/v6
 TAG = 1.0.0
