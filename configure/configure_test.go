@@ -17,19 +17,18 @@ limitations under the License.
 package configure
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/e4jet/pirewall/chain"
+	"github.com/e4jet/pirewall/util"
 )
 
-func TestBasics(t *testing.T) {
-	var me = "pirewall"
-	fmt.Printf("%s\n", me)
-	firsttry := chain.NewChain(1, 1)
-	firsttry.AppendRunner(&QuickTest{})
-	err := firsttry.Execute()
-	if err == nil {
-		fmt.Println("Woohoo")
-	}
+func TestCommand(t *testing.T) {
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&trimPackages{})
+	cmdChain.AppendRunner(&aptUpdate{})
+	cmdChain.AppendRunner(&aptUpgrade{})
+	cmdChain.AppendRunner(&aptPurge{})
+	cmdChain.AppendRunner(&aptClean{})
+	cmdChain.Execute()
 }

@@ -37,58 +37,67 @@ import (
 )
 
 const (
-	defaultTimeout = 60
+	// default timeout
+	DefaultTimeout = 60
+	// Failed to start cmd
+	FailedToStart = 999
+	// Failed without status
+	FailedWithoutStatus = 888
 )
 
-func execCommandOutputWithTimeout(cmd string, args []string, stdinArgs []string, timeout int) (string, int, error) {
-	var err error
+func execCommandOutputWithTimeout(
+	cmd string, args []string, stdinArgs []string, timeout int) (
+	output string, returnCode int, badNews error) {
+	// create the Command
 	c := exec.Command(cmd, args...)
+	fmt.Printf("	running 👉%v\n", c)
 	var b bytes.Buffer
 	c.Stdout = &b
 	c.Stderr = &b
 	if len(stdinArgs) > 0 {
 		c.Stdin = strings.NewReader(strings.Join(stdinArgs, "\n"))
 	}
-	if err = c.Start(); err != nil {
-		return "", 999, err
+	if err := c.Start(); err != nil {
+		return "", FailedToStart, err
 	}
 
 	// Wait for the process to finish or kill it after a timeout:
 	done := make(chan error, 1)
+	var err error
 	go func() {
 		done <- c.Wait()
 	}()
 	select {
 	case <-time.After(time.Duration(timeout) * time.Second):
 		if err = c.Process.Kill(); err != nil {
-			fmt.Printf("failed to kill process %v: error =  %v", c.Process.Pid, err)
+			fmt.Printf("		❌ failed to kill process %v: error =  %v\n", c.Process.Pid, err)
 		}
-		err = fmt.Errorf("command %s with pid: %v killed as timeout of %d seconds reached", cmd, c.Process.Pid, timeout)
+		err = fmt.Errorf("		❌ command %s with pid: %v killed as timeout of %d seconds reached", cmd, c.Process.Pid, timeout)
 		fmt.Println(err.Error())
 	case err = <-done:
 		if err != nil {
-			fmt.Printf("process with pid : %v finished with error = %v", c.Process.Pid, err)
+			fmt.Printf("		❌ process with pid : %v finished with error = %v\n", c.Process.Pid, err)
 		} else {
-			fmt.Printf("process with pid: %v finished successfully", c.Process.Pid)
+			fmt.Printf("		😎 process with pid: %v finished successfully\n", c.Process.Pid)
 		}
 	}
-	out := string(b.Bytes())
+	out := b.String()
 	if err != nil {
-		//check the rc of the exec
+		// check the rc of the exec
 		if badnews, ok := err.(*exec.ExitError); ok {
 			if status, ok := badnews.Sys().(syscall.WaitStatus); ok {
 				// send the error code and stderr content to the caller
-				return out, status.ExitStatus(), fmt.Errorf("command %s failed with rc=%d err=%s", cmd, status.ExitStatus(), out)
+				return out, status.ExitStatus(), fmt.Errorf("		❌ command %s failed with rc=%d err=%s", cmd, status.ExitStatus(), out)
 			}
 		} else {
-			return out, 888, fmt.Errorf("error %s", err.Error())
+			return out, FailedWithoutStatus, fmt.Errorf("		❌ error %s", err.Error())
 		}
 	}
 	return out, 0, nil
 }
 
 // ExecCommandOutputWithTimeout  executes ExecCommandOutput with the specified timeout
-func ExecCommandOutputWithTimeout(cmd string, args []string, timeout int) (string, int, error) {
+func ExecCommandOutputWithTimeout(cmd string, args []string, timeout int) (output string, returnCode int, badNews error) {
 	return execCommandOutputWithTimeout(cmd, args, []string{}, timeout)
 }
 
@@ -96,16 +105,16 @@ func ExecCommandOutputWithTimeout(cmd string, args []string, timeout int) (strin
 // If the return code is not zero, error will not be nil.
 // Stdout and Stderr are dumped to the log at the debug level.
 // Return code of 999 indicates an error starting the command.
-func ExecCommandOutput(cmd string, args []string) (string, int, error) {
-	return ExecCommandOutputWithTimeout(cmd, args, defaultTimeout)
+func ExecCommandOutput(cmd string, args []string) (output string, returnCode int, badNews error) {
+	return ExecCommandOutputWithTimeout(cmd, args, DefaultTimeout)
 }
 
 // ExecCommandOutputWithStdinArgs returns stdout and stderr in a single string, the return code, and error.
 // If the return code is not zero, error will not be nil.
 // Stdout and Stderr are dumped to the log at the debug level.
 // Return code of 999 indicates an error starting the command.
-func ExecCommandOutputWithStdinArgs(cmd string, args []string, stdInArgs []string) (string, int, error) {
-	return execCommandOutputWithTimeout(cmd, args, stdInArgs, defaultTimeout)
+func ExecCommandOutputWithStdinArgs(cmd string, args []string, stdInArgs []string) (output string, returnCode int, badNews error) {
+	return execCommandOutputWithTimeout(cmd, args, stdInArgs, DefaultTimeout)
 }
 
 // FindStringSubmatchMap : find and build  the map of named groups

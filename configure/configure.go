@@ -16,22 +16,43 @@ limitations under the License.
 
 package configure
 
-import "github.com/e4jet/pirewall/util"
+import (
+	"fmt"
 
-type QuickTest struct {
+	"github.com/e4jet/pirewall/chain"
+	"github.com/e4jet/pirewall/util"
+)
+
+const (
+	retries = 2
+)
+
+func RemoveUnwantedPackages() error {
+	fmt.Println("Removing packages that aren't needed.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&trimPackages{})
+	cmdChain.AppendRunner(&aptUpdate{})
+	cmdChain.AppendRunner(&aptUpgrade{})
+	cmdChain.AppendRunner(&aptPurge{})
+	cmdChain.AppendRunner(&aptClean{})
+	return cmdChain.Execute()
 }
 
-func (q QuickTest) Name() string {
-	return "test"
+func AddPackages() error {
+	fmt.Println("Adding useful packages.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&aptUpdate{})
+	cmdChain.AppendRunner(&aptUpgrade{})
+	cmdChain.AppendRunner(&aptInstall{})
+	return cmdChain.Execute()
 }
 
-func (q *QuickTest) Run() (name interface{}, err error) {
-	out, _, err := util.ExecCommandOutput("echo", []string{"Hello"})
-	return out, err
-
-}
-
-func (q *QuickTest) Rollback() (err error) {
-	//no op
-	return nil
+func DisableUnwantedServices() error {
+	fmt.Println("Disabling unneeded services.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&stopService{service: "bluetooth"})
+	cmdChain.AppendRunner(&disableService{service: "bluetooth"})
+	cmdChain.AppendRunner(&stopService{service: "sound.target"})
+	cmdChain.AppendRunner(&disableService{service: "sound.target"})
+	return cmdChain.Execute()
 }

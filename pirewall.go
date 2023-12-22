@@ -17,22 +17,37 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/e4jet/pirewall/chain"
 	"github.com/e4jet/pirewall/configure"
 )
 
 const (
 	// my name
-	me = "pirewall"
+	me   = "pirewall"
+	fail = 3
+	pass = 0
 )
 
 func main() {
 	fmt.Printf("%s\n", me)
-	firsttry := chain.NewChain(1, 1)
-	firsttry.AppendRunner(&configure.QuickTest{})
-	err := firsttry.Execute()
+	err := configure.RemoveUnwantedPackages()
 	if err != nil {
-		fmt.Println("Woohoo")
+		fmt.Println(err)
+		os.Exit(fail)
 	}
+
+	err = configure.AddPackages()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+
+	err = configure.DisableUnwantedServices()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+	fmt.Println("end")
+	os.Exit(0)
 }

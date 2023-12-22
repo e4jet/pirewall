@@ -70,13 +70,7 @@ test: ; $(info $(A1) test)
 
 pirewall: debug lint test ; $(info $(A1) pirewall)
 	@echo "$(A2) build pirewall"
-	docker build -t e4jet/pirewall:${TAG} .
-	@echo "$(A2) $(S0)"
-
-.PHONY: push
-push: pirewall ; $(info $(A1) push)
-	@echo "$(A2) push pirewall"
-	docker push e4jet/pirewall:${TAG}
+	go build pirewall.go
 	@echo "$(A2) $(S0)"
 
 .PHONY: all

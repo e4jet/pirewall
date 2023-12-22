@@ -71,16 +71,11 @@ func NewChain(retries int, retrySleep time.Duration) *Chain {
 }
 
 // AppendRunner appends a Runner to the Chain
-func (c *Chain) AppendRunner(cmd Runner) error {
+func (c *Chain) AppendRunner(cmd Runner) {
 	c.runLock.Lock()
 	defer c.runLock.Unlock()
 
-	if c.done {
-		return fmt.Errorf("this chain has already executed")
-	}
-
 	c.commands = append(c.commands, cmd)
-	return nil
 }
 
 // Execute runs the chain exactly once
@@ -167,7 +162,7 @@ func (c *Chain) runWithRetry(step int, command Runner) (out interface{}, err err
 	for try := 0; try < c.maxRetryOnError+1; try++ {
 		out, err = command.Run()
 		if err == nil {
-			return out, err
+			return out, nil
 		}
 		time.Sleep(c.sleepBeforeRetry)
 	}
@@ -178,7 +173,7 @@ func (c *Chain) rollbackWithRetry(command Runner) (err error) {
 	for try := 0; try < c.maxRetryOnError+1; try++ {
 		err = command.Rollback()
 		if err == nil {
-			return err
+			return nil
 		}
 		time.Sleep(c.sleepBeforeRetry)
 	}

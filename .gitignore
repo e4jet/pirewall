@@ -1,2 +1,4 @@
 .DS_Store
 configure/__debug_bin*
+pirewall
+pirewall.coverprofile
