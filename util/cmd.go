@@ -38,7 +38,7 @@ import (
 
 const (
 	// default timeout
-	DefaultTimeout = 60
+	DefaultTimeout = 600
 	// Failed to start cmd
 	FailedToStart = 999
 	// Failed without status

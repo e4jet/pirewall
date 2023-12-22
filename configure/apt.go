@@ -56,7 +56,7 @@ func (a *aptInstall) Name() string {
 
 func (a *aptInstall) Run() (result interface{}, err error) {
 	command := []string{"install", "-y"}
-	packages := []string{"bmon", "dnsmasq"}
+	packages := []string{"bmon", "dnsmasq", "dnsutils"}
 	out, _, err := util.ExecCommandOutput(aptgetBin, append(command, packages...))
 	return out, err
 }

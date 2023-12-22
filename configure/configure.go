@@ -56,3 +56,10 @@ func DisableUnwantedServices() error {
 	cmdChain.AppendRunner(&disableService{service: "sound.target"})
 	return cmdChain.Execute()
 }
+
+func ConfigSysCtl() error {
+	fmt.Println("Adjusting /etc/sysctl.conf.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&configSysCtl{})
+	return cmdChain.Execute()
+}

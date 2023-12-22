@@ -48,6 +48,13 @@ func main() {
 		fmt.Println(err)
 		os.Exit(fail)
 	}
-	fmt.Println("end")
+
+	err = configure.ConfigSysCtl()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+
+	fmt.Println("Done!")
 	os.Exit(0)
 }
