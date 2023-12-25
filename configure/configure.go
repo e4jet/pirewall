@@ -47,6 +47,14 @@ func AddPackages() error {
 	return cmdChain.Execute()
 }
 
+func EnableNewServices() error {
+	fmt.Println("Enabling new services.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&startService{"unattended-upgrades"})
+	cmdChain.AppendRunner(&enableService{"unattended-upgrades"})
+	return cmdChain.Execute()
+}
+
 func DisableUnwantedServices() error {
 	fmt.Println("Disabling unneeded services.")
 	cmdChain := chain.NewChain(retries, util.DefaultTimeout)

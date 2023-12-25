@@ -43,6 +43,12 @@ func main() {
 		os.Exit(fail)
 	}
 
+	err = configure.EnableNewServices()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+
 	err = configure.DisableUnwantedServices()
 	if err != nil {
 		fmt.Println(err)

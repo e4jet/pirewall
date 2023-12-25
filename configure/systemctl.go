@@ -65,3 +65,45 @@ func (s *stopService) Rollback() (err error) {
 	// no op
 	return nil
 }
+
+// systemctl is used to start a service
+type startService struct {
+	service string
+}
+
+func (s *startService) Name() string {
+	return fmt.Sprintf("%T.%s", s, s.service)
+}
+
+func (s *startService) Run() (result interface{}, err error) {
+	command := []string{"start", s.service}
+	out, _, err := util.ExecCommandOutput(systemctl, command)
+	return out, err
+}
+
+func (s *startService) Rollback() (err error) {
+	stopper := &stopService{service: s.service}
+	_, err = stopper.Run()
+	return err
+}
+
+// systemctl is used to enable a service
+type enableService struct {
+	service string
+}
+
+func (s *enableService) Name() string {
+	return fmt.Sprintf("%T.%s", s, s.service)
+}
+
+func (s *enableService) Run() (result interface{}, err error) {
+	command := []string{"enable", s.service}
+	out, _, err := util.ExecCommandOutput(systemctl, command)
+	return out, err
+}
+
+func (s *enableService) Rollback() (err error) {
+	disabler := &disableService{service: s.service}
+	_, err = disabler.Run()
+	return err
+}

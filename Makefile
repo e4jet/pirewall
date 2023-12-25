@@ -81,3 +81,8 @@ all: clean pirewall; $(info $(A1) all)
 rsync: ; $(info $(A1) $@)
 	rsync -e ssh -urlt ~/go/src/github.com/e4jet/pirewall/ tom:go/src/github.com/e4jet/pirewall/
 	@echo "$(S0)"
+
+.PHONY: tom
+tom: clean; $(info $(A1) tom)
+	go build pirewall.go;sudo ./pirewall
+	@echo "$(S0)"

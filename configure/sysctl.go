@@ -66,7 +66,7 @@ func (c *configSysCtl) Run() (result interface{}, err error) {
 		}
 	}
 	if len(settings) != changeCount {
-		return nil, fmt.Errorf("Not all changes expected were made.")
+		return nil, fmt.Errorf("not all changes expected were made")
 	}
 	err = util.FileWriteStrings(sysctlFile, changes)
 	return nil, err

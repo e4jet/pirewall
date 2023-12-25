@@ -1,0 +1,102 @@
+*nat
+:PREROUTING ACCEPT
+:INPUT ACCEPT
+:POSTROUTING ACCEPT
+:OUTPUT ACCEPT
+-A POSTROUTING -o eth0 -j MASQUERADE
+COMMIT
+
+*filter
+#
+# packets destined for this device are dropped by default
+:INPUT DROP
+#
+# packets routed through this device are dropped by default
+:FORWARD DROP
+#
+# packets that are leaving this device are allowed by default
+:OUTPUT ACCEPT
+#
+# create a table called public
+:public - [0:0]
+#
+# create a table called trusted
+:trusted - [0:0]
+#
+# all packets destined for this device incoming on eth0 are jumped to the table named public
+-A INPUT -i eth0 -j public
+#
+# all packets destined for this device incoming on enxa000000000b7 or lo are jumped to the table named trusted
+-A INPUT -i enxa000000000b7 -j trusted
+-A INPUT -i lo -j trusted
+#
+# log everything else
+-A INPUT -j LOG --log-prefix "dropped_INPUT! "
+#
+# all packets routed by this device incoming on eth0 are jumped to the table named public
+-A FORWARD -i eth0 -j public
+#
+# all packets routed by this device incoming on enxa000000000b7 or lo are jumped to the table named trusted
+-A FORWARD -i enxa000000000b7 -j trusted
+-A FORWARD -i lo -j trusted
+#
+# log everything else
+-A FORWARD -j LOG --log-prefix "dropped_FORWARD! "
+
+#              _     _ _
+#  _ __  _   _| |__ | (_) ___
+# | '_ \| | | | '_ \| | |/ __|
+# | |_) | |_| | |_) | | | (__
+# | .__/ \__,_|_.__/|_|_|\___|
+# |_|
+#
+# INPUT and FORWARD are jumped to this table for eth0
+#
+# drop packets with illegal flags (likely redundant given --ctstate INVALID later)
+-A public -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
+-A public -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
+-A public -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP
+-A public -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j DROP
+-A public -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP
+-A public -p tcp -m tcp --tcp-flags PSH,ACK PSH -j DROP
+-A public -p tcp -m tcp --tcp-flags ACK,URG URG -j DROP
+#
+# drop packets with illegal sources
+-A public -s 127.0.0.0/8 -j DROP
+-A public -s 10.0.0.0/8  -j DROP
+-A public -s 172.16.0.0/12 -j DROP
+-A public -s 192.168.0.0/16 -j DROP
+#
+# drop all icmp
+-A public -p icmp -j DROP
+#
+# drop noisy traffic
+-A public -p tcp -m tcp --dport 113 -j DROP
+-A public -p udp -m udp --dport 113 -j DROP
+-A public -p udp -m udp --dport 161 -j DROP
+-A public -p udp -m udp --dport 67 -j DROP
+-A public -p udp -m udp --dport 137 -j DROP
+-A public -p udp -m udp --dport 138 -j DROP
+-A public -p udp -m udp --dport 520 -j DROP
+-A public -p udp -m udp --dport 5353 -j DROP
+-A public -p udp -m udp --dport 27015 -j DROP
+#
+# tcp state rules
+-A public -m conntrack --ctstate INVALID -j DROP
+-A public -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#
+# log and drop everything else
+-A public -j LOG --log-prefix "dropped_public! "
+-A public -j DROP
+
+#  _                  _           _
+# | |_ _ __ _   _ ___| |_ ___  __| |
+# | __| '__| | | / __| __/ _ \/ _` |
+# | |_| |  | |_| \__ \ ||  __/ (_| |
+#  \__|_|   \__,_|___/\__\___|\__,_|
+#
+# INPUT and FORWARD are jumped to this table for internal network and localhost
+#
+# allow all traffic originating from this network
+-A trusted -j ACCEPT
+COMMIT
