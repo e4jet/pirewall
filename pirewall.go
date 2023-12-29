@@ -31,7 +31,13 @@ const (
 
 func main() {
 	fmt.Printf("%s\n", me)
-	err := configure.RemoveUnwantedPackages()
+	err := configure.ConfigRaspi()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+
+	err = configure.RemoveUnwantedPackages()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(fail)

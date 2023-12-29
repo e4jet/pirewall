@@ -71,3 +71,14 @@ func ConfigSysCtl() error {
 	cmdChain.AppendRunner(&configSysCtl{})
 	return cmdChain.Execute()
 }
+
+func ConfigRaspi() error {
+	fmt.Println("Adjusting settings using raspi-conf.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&screenBlanking{setting: "0"})
+	cmdChain.AppendRunner(&fanControl{setting: "0"})
+	cmdChain.AppendRunner(&predictableNetNames{setting: "0"})
+	cmdChain.AppendRunner(&setLocale{setting: "en_US.UTF-8"})
+	cmdChain.AppendRunner(&setTimezone{setting: "America/New_York"})
+	return cmdChain.Execute()
+}
