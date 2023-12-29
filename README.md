@@ -39,7 +39,7 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 - [ ] The network is configured
 - [ ] The example rules are put in place
 - [ ] Basic QOS
-- [ ] Pi configured
+- [X] Device is configured
 
 ## iptables
 
