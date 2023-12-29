@@ -49,14 +49,14 @@ The following diagram depicts the association between tables and interfaces in t
 
 ![iptables](./doc/iptables.png)
 
-When a packet is destined for the firewall, it arrives on eth0 and is handled by the INPUT table, which defaults to DROPping the packet.  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  In most cases this is DROPPED as the firewall doesn't provide services to the outside world.
+When a packet is destined for the firewall, it is handled by the INPUT table, which defaults to DROPping the packet.  Our first rule in the INPUT table is to "jump" to the "public" table when a packet shows up on eth0.  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  In most cases this is DROPPED as the firewall doesn't provide services to the outside world.
 
 ![in](./doc/in.png)
 
-Similarly, when a packet is destined for something behind the firewall, it arrives on eth0 and is handled by the FORWARD table, which also defaults to DROPping the packet.  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the host behind the firewall.
+Similarly, when a packet is destined for something behind the firewall, it is handled by the FORWARD table, which also defaults to DROPping the packet.  The first rule in the FORWARD table is to "jump" to the "public" table when a packet shows up on eth0 (which is plugged into our provider).  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the host behind the firewall.
 
 ![in](./doc/fwdin.png)
 
-When a packet is destined for something on the public network, it arrives on eth1 and is handled by the FORWARD table, which defaults to DROPping the packet.  The packet is passed through the 'trusted' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the on the public network.
+When a packet is destined for something on the public network, it is also handled by the FORWARD table, which defaults to DROPping the packet.  There is a rule in the FOWARD table that "jumps" to the "trusted" table when a packet is received on eth1 (which is plugged into out internal network).  The packet is passed through the 'trusted' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the on the public network.
 
 ![in](./doc/fwdOut.png)
