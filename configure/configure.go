@@ -82,3 +82,11 @@ func ConfigRaspi() error {
 	cmdChain.AppendRunner(&setTimezone{setting: "America/New_York"})
 	return cmdChain.Execute()
 }
+
+func ConfigNetworkPublic() error {
+	fmt.Println("Configuraing public facing network connection.")
+	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
+	cmdChain.AppendRunner(&renameConnection{dev: "end0", newConnectionName: "public"})
+	cmdChain.AppendRunner(&disableIPV6{dev: }})
+
+}
