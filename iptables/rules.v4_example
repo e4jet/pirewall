@@ -3,6 +3,7 @@
 :INPUT ACCEPT
 :POSTROUTING ACCEPT
 :OUTPUT ACCEPT
+-A PREROUTING -i eth0 -p tcp -m tcp --dport 30303 -j DNAT --to-destination 192.168.3.1:30303
 -A POSTROUTING -o eth0 -j MASQUERADE
 COMMIT
 
@@ -52,7 +53,7 @@ COMMIT
 #
 # INPUT and FORWARD are jumped to this table for eth0
 #
-# drop packets with illegal flags (likely redundant given --ctstate INVALID later)
+# drop packets with illegal flags
 -A public -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
 -A public -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
 -A public -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP
@@ -82,8 +83,10 @@ COMMIT
 -A public -p udp -m udp --dport 27015 -j DROP
 #
 # tcp state rules
--A public -m conntrack --ctstate INVALID -j DROP
+-A public -m conntrack --ctstate INVALID -j LOG --log-prefix "connection seems invalid. "
 -A public -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#
+-A public -p tcp -m state --state NEW -m tcp --dport 30303 -j ACCEPT
 #
 # log and drop everything else
 -A public -j LOG --log-prefix "dropped_public! "

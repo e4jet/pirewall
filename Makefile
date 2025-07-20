@@ -24,8 +24,9 @@
 
 GO_VERSION = 1.20
 PACKAGE_ROOT = github.com/e4jet/pirewall
-##PLATFORM = linux/arm/v6
 TAG = 1.0.0
+GOOS=linux
+GOARCH=arm64
 
 # prefixes to make things pretty
 A1 = $(shell printf "»")
@@ -48,7 +49,8 @@ debug:
 	@echo "Debug:"
 	@echo "  Go:           `go version`"
 	@echo "  GOPATH:       $(GOPATH)"
-##	@echo "  PLATFORM:     $(PLATFORM)"
+	@echo "  GOOS:         $(GOOS)"
+	@echo "  GOARCH:       $(GOARCH)"
 	@echo "  PACKAGE_ROOT: $(PACKAGE_ROOT)"
 	@echo "$(S0)"
 
@@ -68,9 +70,9 @@ test: ; $(info $(A1) test)
 	go test -coverprofile=pirewall.coverprofile ./...
 	@echo "$(A2) $(S0)"
 
-pirewall: debug lint test ; $(info $(A1) pirewall)
+pirewall: debug test ; $(info $(A1) pirewall)
 	@echo "$(A2) build pirewall"
-	go build pirewall.go
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build pirewall.go
 	@echo "$(A2) $(S0)"
 
 .PHONY: all

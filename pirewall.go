@@ -67,6 +67,12 @@ func main() {
 		os.Exit(fail)
 	}
 
+	err = configure.ConfigNetworkPublic()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(fail)
+	}
+
 	fmt.Println("Done!")
 	os.Exit(0)
 }
