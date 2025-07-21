@@ -36,7 +36,7 @@ func (t *trimPackages) Name() string {
 
 func (t *trimPackages) Run() (result interface{}, err error) {
 	command := []string{"purge", "-y"}
-	packages := []string{"libx11.*", "libqt.*", "aardvark-dns", "wireless-*", "triggerhappy", "avahi-daemon"}
+	packages := []string{"libx11.*", "libqt.*", "aardvark-dns", "wireless-*", "triggerhappy", "avahi-daemon"} //, "golang"}
 	out, _, err := util.ExecCommandOutput(aptgetBin, append(command, packages...))
 	return out, err
 }
@@ -55,9 +55,9 @@ func (a *aptInstall) Name() string {
 }
 
 func (a *aptInstall) Run() (result interface{}, err error) {
-	command := []string{"--yes", "--force-yes", "install", "-yqq"}
+	command := []string{"--yes", "install", "-yqq"}
 	// add ddclient eventually
-	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges"}
+	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges", "vlan", "netplan.io"}
 	out, _, err := util.ExecCommandOutput(aptgetBin, append(command, packages...))
 	return out, err
 }
