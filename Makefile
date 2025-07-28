@@ -79,6 +79,10 @@ pirewall: debug test ; $(info $(A1) pirewall)
 all: clean pirewall; $(info $(A1) all)
 	@echo "$(S0)"
 
+.PHONY: installer
+installer: ; $(info $(A1) $@)
+	tar -cvzf install.tgz install
+
 .PHONY: rsync
 rsync: ; $(info $(A1) $@)
 	rsync -e ssh -urlt ~/go/src/github.com/e4jet/pirewall/ tom:go/src/github.com/e4jet/pirewall/

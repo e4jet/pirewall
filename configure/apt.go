@@ -18,6 +18,7 @@ package configure
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/e4jet/pirewall/util"
 )
@@ -56,8 +57,11 @@ func (a *aptInstall) Name() string {
 
 func (a *aptInstall) Run() (result interface{}, err error) {
 	command := []string{"--yes", "install", "-yqq"}
-	// add ddclient eventually
-	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges", "vlan", "netplan.io"}
+	// create ddclient config to skip interactive install
+	file, _ := os.Create("/etc/ddclient.conf")
+	file.Close()
+
+	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges", "vlan", "netplan.io", "ddclient"}
 	out, _, err := util.ExecCommandOutput(aptgetBin, append(command, packages...))
 	return out, err
 }
