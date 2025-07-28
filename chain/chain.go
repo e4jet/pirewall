@@ -21,7 +21,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 
 This work was forked from the following repository
-https://raw.githubusercontent.com/hpe-storage/dory
+https://github.com/hpe-storage/dory
 */
 
 package chain
