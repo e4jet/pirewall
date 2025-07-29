@@ -61,7 +61,7 @@ func (a *aptInstall) Run() (result interface{}, err error) {
 	file, _ := os.Create("/etc/ddclient.conf")
 	file.Close()
 
-	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges", "vlan", "netplan.io", "ddclient"}
+	packages := []string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent", "git", "unattended-upgrades", "apt-listchanges", "vlan", "netplan.io", "ddclient", "nload", "iftop"}
 	out, _, err := util.ExecCommandOutput(aptgetBin, append(command, packages...))
 	return out, err
 }
