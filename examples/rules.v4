@@ -3,7 +3,7 @@
 :INPUT ACCEPT
 :POSTROUTING ACCEPT
 :OUTPUT ACCEPT
--A PREROUTING -i eth0 -p tcp -m tcp --dport 30303 -j DNAT --to-destination 192.168.3.1:30303
+-A PREROUTING -i eth0 -p tcp -m tcp --dport 30303 -j DNAT --to-destination 10.10.10.10:30303
 -A POSTROUTING -o eth0 -j MASQUERADE
 COMMIT
 
