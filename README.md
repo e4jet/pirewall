@@ -148,7 +148,12 @@ Leverage bmon.
 
 Leverage the [Raspberry Pi installer](https://www.raspberrypi.com/software/) to install Raspberry Pi OS Lite.  Using this tool, configure a different user name (not pi), add an ssh key, and disable ssh interactive authentication.
 
-After the new image is used to boot the pi, download install.tgz.
+After the new image is used to boot the pi, download [install.tgz](https://github.com/e4jet/pirewall/raw/refs/heads/main/install.tgz).
+
+```bash
+$ sha512sum install.tgz
+2249b4f0c30113f45407932a087585f5429eb67d1e36e68ce97f358364da36f34e03e3cd44c5424b14dc20e26130d89a798618031cb19fc0d52aa7def4a88e23  install.tgz
+```
 
 Use tar to extract the tools and then remove the archive.
 
