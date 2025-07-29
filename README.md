@@ -8,9 +8,9 @@ This is known to run well on 4GiB Pi 4 (USB 3 ports used for networks).  Likely 
 
 pirewall is a simple utility that configures a new install of [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) to act as a firewall.  The target is the 64-bit version, based on Debian 12 (a.k.a. bookworm).
 
-Please note that pirewall **is not** involved in the data path at all.  It simply configures the many features of the linux kernel to provide the functionality.  Its run once and then configure the services.
+Please note that pirewall **is not** involved in the data path at all.  It simply configures the many features of the linux kernel to provide the functionality.  Its run once and then configures the services.
 
-It is also extremely opinionated (essentially based on my needs).  This uses the built-in ethernet adaptor  and a USB3 based network adaptor. Th.  wifi and bluetooth are disabled.
+It is also extremely opinionated (essentially based on my needs).  This uses the built-in ethernet adaptor  and a USB3 based network adaptor. The wifi and bluetooth are disabled.
 
 ## Why
 
@@ -40,6 +40,7 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 - [ ] The example rules are put in place
 - [ ] Basic QOS
 - [X] Device is configured
+- [ ] Automate service fixes
 
 ## Examples
 
@@ -74,7 +75,7 @@ When a packet is destined for the firewall, it is handled by the INPUT table, wh
 
 Similarly, when a packet is destined for something behind the firewall, it is handled by the FORWARD table, which also defaults to DROPping the packet.  The first rule in the FORWARD table is to "jump" to the "public" table when a packet shows up on eth0 (which is plugged into our provider).  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the host behind the firewall.
 
-![in](./doc/fwdin.png)
+![in](./doc/fwdIn.png)
 
 When a packet is destined for something on the public network, it is also handled by the FORWARD table, which defaults to DROPping the packet.  There is a rule in the FOWARD table that "jumps" to the "trusted" table when a packet is received on eth1 (which is plugged into out internal network).  The packet is passed through the 'trusted' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the on the public network.
 
@@ -82,7 +83,7 @@ When a packet is destined for something on the public network, it is also handle
 
 ## dnsmasq
 
-[dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) dnsmasq is a versatile and efficient tool for managing DNS and DHCP services in small to medium-sized networks.  The is an option service that is installed and ready to be configured.
+[dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) dnsmasq is a versatile and efficient tool for managing DNS and DHCP services in small to medium-sized networks.  The is an optional service that is installed and ready to be configured.
 
 ## ddclient
 
@@ -105,6 +106,35 @@ This script requires root level access.  The git repo must be configured prior t
 1. Configure git for the the root user
    - `~ $ sudo git config --global user.email "you@example.com"`
    - `~ $ sudo git config --global user.name "Your Name"`
+
+Example run:
+
+```bash
+$ sudo ./bin/backupConfig pi
+cp /etc/netplan/01-network.yaml /home/pi/fw/etc/netplan/01-network.yaml  ...Success.
+cp /etc/sysctl.conf /home/pi/fw/etc/sysctl.conf  ...Success.
+cp /etc/ddclient.conf /home/pi/fw/etc/ddclient.conf  ...Success.
+cp /etc/dnsmasq.d/host.local /home/pi/fw/etc/dnsmasq.d/host.local  ...Success.
+cp /etc/dnsmasq.d/dns.conf /home/pi/fw/etc/dnsmasq.d/dns.conf  ...Success.
+cp /etc/dnsmasq.d/dhcp.conf /home/pi/fw/etc/dnsmasq.d/dhcp.conf  ...Success.
+cp /etc/ssh/sshd_config /home/pi/fw/etc/ssh/sshd_config  ...Success.
+cp /etc/iptables/rules.v6 /home/pi/fw/etc/iptables/rules.v6  ...Success.
+cp /etc/iptables/rules.v4 /home/pi/fw/etc/iptables/rules.v4  ...Success.
+chmod -R 700 /home/pi/fw ...Success.
+chown -R pi /home/pi/fw ...Success.
+[master (root-commit) d738497] auto commit
+ 10 files changed, 344 insertions(+)
+ create mode 100755 etc/ddclient.conf
+ create mode 100755 etc/dnsmasq.d/dhcp.conf
+ create mode 100755 etc/dnsmasq.d/dns.conf
+ create mode 100755 etc/dnsmasq.d/host.local
+ create mode 100755 etc/iptables/rules.v4
+ create mode 100755 etc/iptables/rules.v6
+ create mode 100755 etc/netplan/01-network.yaml
+ create mode 100755 etc/ssh/sshd_config
+ create mode 100755 etc/sysctl.conf
+ create mode 100755 var/lib/misc/dnsmasq.leases
+```
 
 ### Tools
 
@@ -203,3 +233,8 @@ Leverage root's cron table to backup the configuration.
 ```
 
 Note that a better username should be used above instead of pi.
+
+### Fix systemd targets
+
+- Change `network.target` to `network-online.target` in `/etc/systemd/system/multi-user.target.wants/ssh.service`
+- Change `network.target` to `network-online.target` in `/etc/systemd/system/multi-user.target.wants/dnsmasq.service`
