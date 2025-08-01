@@ -43,7 +43,9 @@ func AddPackages() error {
 	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
 	cmdChain.AppendRunner(&aptUpdate{})
 	cmdChain.AppendRunner(&aptUpgrade{})
-	cmdChain.AppendRunner(&aptInstall{})
+	cmdChain.AppendRunner(&aptInstall{[]string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent"}})
+	cmdChain.AppendRunner(&aptInstall{[]string{"git", "unattended-upgrades", "apt-listchanges", "vlan"}})
+	cmdChain.AppendRunner(&aptInstall{[]string{"netplan.io", "ddclient", "nload", "iftop"}})
 	return cmdChain.Execute()
 }
 
