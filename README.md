@@ -91,6 +91,12 @@ When a packet is destined for something on the public network, it is also handle
 
 ## Utilities
 
+### rebootOnWatchdog
+
+`bin/rebootOnWatchdog` is a script that is intended to be run out of cron.  It leverages journalctl to watch for watchdog errors on the network devices.  If found, it reboot the os (init 6).
+
+This script also ensures sshd has started.
+
 ### mirrorConfig
 
 `bin/mirrorConfig` is a script that copies files into the `~/fw` directory.  To get files "pulled" into this directory, simply touch the filename with the corresponding path.
