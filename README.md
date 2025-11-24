@@ -28,6 +28,7 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 
 ### Configuration
 
+- [ ] Create the installer
 - [X] Packages that are not needed are removed
 - [ ] Packages that are needed are added
 - [X] New Services are started and enabled
@@ -241,6 +242,7 @@ Leverage root's cron table to backup the configuration.
 
 ``` crontab
 * * * * * /home/pi/bin/backupConfig pi > /tmp/backupConfig 2>&1
+* * * * * /home/pi/bin/rebootOnWatchdog > /var/tmp/rebootOnWatchdog 2>&1
 ```
 
 Note that a better username should be used above instead of pi.
