@@ -19,8 +19,8 @@
 # find any errors, it returns 1.  If journalctl is successful (0),
 # we've found an issue, so we log it and reboot.
 
-journalctl -b -g 'NETDEV WATCHDOG' -p err --since "1 min ago" --no-pager
-if [ $? != 1 ] ; then
+journalctl -g 'NETDEV WATCHDOG' -p err --since "1 min ago" --no-pager
+if [ $? == 0 ] ; then
 	logger "Network watchdog, rebooting..."
 	init 6
 fi
