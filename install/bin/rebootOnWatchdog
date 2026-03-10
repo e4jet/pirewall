@@ -22,7 +22,7 @@
 journalctl -g 'NETDEV WATCHDOG' -p err --since "1 min ago" --no-pager
 if [ $? == 0 ] ; then
 	logger "Network watchdog, rebooting..."
-	init 6
+	/usr/sbin/init 6
 fi
 
 # Timing issues can cause sshd to not start.  This just makes sure.

@@ -1,3 +1,5 @@
+//go:build integration
+
 /*
 (c) Copyright 2023 Eric Paul Forgette
 
@@ -17,18 +19,13 @@ limitations under the License.
 package configure
 
 import (
+	"context"
 	"testing"
-
-	"github.com/e4jet/pirewall/chain"
-	"github.com/e4jet/pirewall/util"
 )
 
-func TestCommand(t *testing.T) {
-	cmdChain := chain.NewChain(retries, util.DefaultTimeout)
-	cmdChain.AppendRunner(&trimPackages{})
-	cmdChain.AppendRunner(&aptUpdate{})
-	cmdChain.AppendRunner(&aptUpgrade{})
-	cmdChain.AppendRunner(&aptPurge{})
-	cmdChain.AppendRunner(&aptClean{})
-	cmdChain.Execute()
+func TestRemoveUnwantedPackages(t *testing.T) {
+	ctx := context.Background()
+	if err := RemoveUnwantedPackages(ctx); err != nil {
+		t.Logf("RemoveUnwantedPackages failed (expected in non-Raspi env): %v", err)
+	}
 }

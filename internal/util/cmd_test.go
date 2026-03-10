@@ -1,3 +1,5 @@
+//go:build unit
+
 /*
 (c) Copyright 2017 Hewlett Packard Enterprise Development LP
 
@@ -27,38 +29,36 @@ https://github.com/hpe-storage/common-host-libs/
 package util
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
 
 func TestEchoExecCommandOutput(t *testing.T) {
-	out, rc, err := ExecCommandOutput("echo", []string{"Hello"})
+	t.Parallel()
+	ctx := context.Background()
+	out, rc, err := ExecCommandOutput(ctx, "echo", []string{"Hello"})
 	if err != nil {
-		t.Error(
-			"Unexpected error", err,
-		)
+		t.Error("Unexpected error", err)
 	}
 	if rc > 0 {
+		t.Error("Unexpected rc", rc)
+	}
+	if !strings.Contains(out, "Hello") {
 		t.Error(
-			"Unexpected rc", rc,
+			"For", "output of 'echo Hello'",
+			"expected output to contain", "Hello",
+			"got", out,
 		)
 	}
-	if strings.HasSuffix(out, "Hello") {
-		t.Error(
-			"For", "return code of false",
-			"expected", "1",
-			"got", rc,
-		)
-	}
-
 }
 
 func TestFalseExecCommandOutput(t *testing.T) {
-	out, rc, err := ExecCommandOutput("false", []string{"foo"})
+	t.Parallel()
+	ctx := context.Background()
+	out, rc, err := ExecCommandOutput(ctx, "false", []string{"foo"})
 	if err == nil {
-		t.Error(
-			"Expected error to not be nil", err,
-		)
+		t.Error("Expected error to not be nil", err)
 	}
 	if rc != 1 {
 		t.Error(
@@ -77,11 +77,11 @@ func TestFalseExecCommandOutput(t *testing.T) {
 }
 
 func TestFailExecCommandOutput(t *testing.T) {
-	out, _, err := ExecCommandOutput("cp", []string{"x"})
+	t.Parallel()
+	ctx := context.Background()
+	out, _, err := ExecCommandOutput(ctx, "cp", []string{"x"})
 	if err == nil {
-		t.Error(
-			"Expected error to be nil", err,
-		)
+		t.Error("Expected error to not be nil")
 	}
 	if out == "" {
 		t.Error(
@@ -91,11 +91,9 @@ func TestFailExecCommandOutput(t *testing.T) {
 		)
 	}
 
-	_, rc, err := ExecCommandOutput("nosuchcommand", []string{"x"})
+	_, rc, err := ExecCommandOutput(ctx, "nosuchcommand", []string{"x"})
 	if err == nil {
-		t.Error(
-			"Expected error to not be nil", err,
-		)
+		t.Error("Expected error to not be nil", err)
 	}
 	if rc != 999 {
 		t.Error(

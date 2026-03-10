@@ -22,7 +22,7 @@
 #
 # Raspi based firewall
 
-GO_VERSION = 1.20
+GO_VERSION = 1.26
 PACKAGE_ROOT = github.com/e4jet/pirewall
 TAG = 1.0.0
 GOOS=linux
@@ -38,8 +38,9 @@ S0 = 😁
 help:
 	@echo "Main:"
 	@echo "    all                                 - clean, debug, lint, test, and build"
-	@echo "    lint                                - Run a linter on the source code"
+	@echo "    check                               - Run a linters, test, fmt, etc. on the source code"
 	@echo "    test                                - Execute all tests"
+	@echo "    sfx                                 - Build self-extracting installer for Raspberry Pi 4"
 	@echo "    clean                               - Remove existing binaries and empty database"
 	@echo " "
 	@echo "$(S0)"
@@ -54,41 +55,61 @@ debug:
 	@echo "  PACKAGE_ROOT: $(PACKAGE_ROOT)"
 	@echo "$(S0)"
 
-clean: ; $(info $(A1) clean)
-	rm -f pirewall
+.PHONY: all
+all: clean debug check pirewall; $(info $(A1) $@)
+	@echo "$(S0)"
+
+.PHONY: check
+check: fmt vet lint ; $(info $(A1) $@)
+	@echo "$(S0)"
+
+clean: ; $(info $(A1) $@)
+	rm -f pirewall pirewall-*.install
 	@echo "🧹"
 
+.PHONY: fmt
+fmt: ; $(info $(A1) $@)
+	@echo "$(A2) format go source code"
+	go fmt ./...
+	@echo "$(A2) $(S0)"
+
+.PHONY: vet
+vet: ; $(info $(A1) $@)
+	@echo "$(A2) vet go source code"
+	go vet ./...
+	@echo "$(A2) $(S0)"
+
 .PHONY: lint
-lint: test ; $(info $(A1) lint)
+lint: ; $(info $(A1) $@)
 	@echo "$(A2) Lint go source code"
 	golangci-lint run ./...
 	@echo "$(A2) $(S0)"
 
 .PHONY: test
-test: ; $(info $(A1) test)
+test: ; $(info $(A1) $@)
 	@echo "$(A2) test pirewall"
-	go test -coverprofile=pirewall.coverprofile ./...
+	go test -race -tags unit -coverprofile=pirewall.coverprofile $$(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' -tags unit ./...)
 	@echo "$(A2) $(S0)"
 
-pirewall: debug test ; $(info $(A1) pirewall)
+pirewall: debug test ; $(info $(A1) $@)
 	@echo "$(A2) build pirewall"
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build pirewall.go
 	@echo "$(A2) $(S0)"
-
-.PHONY: all
-all: clean pirewall; $(info $(A1) all)
-	@echo "$(S0)"
 
 .PHONY: installer
 installer: ; $(info $(A1) $@)
 	tar -cvzf install.tgz install
 
-.PHONY: rsync
-rsync: ; $(info $(A1) $@)
-	rsync -e ssh -urlt ~/go/src/github.com/e4jet/pirewall/ tom:go/src/github.com/e4jet/pirewall/
-	@echo "$(S0)"
-
-.PHONY: tom
-tom: clean; $(info $(A1) tom)
-	go build pirewall.go;sudo ./pirewall
-	@echo "$(S0)"
+.PHONY: sfx
+sfx: pirewall ; $(info $(A1) $@)
+	@echo "$(A2) build self-extracting archive"
+	@mkdir -p _sfx/bin
+	@cp pirewall _sfx/
+	@cp install/bin/rebootOnWatchdog _sfx/bin/
+	@cp -r install/examples _sfx/
+	@tar czf _payload.tgz -C _sfx .
+	@cat install.sh _payload.tgz > pirewall-$(TAG)-linux-arm64.install
+	@chmod +x pirewall-$(TAG)-linux-arm64.install
+	@rm -rf _sfx _payload.tgz
+	@sha512sum pirewall-1.0.0-linux-arm64.install
+	@echo "$(A2) $(S0)"

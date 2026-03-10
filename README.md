@@ -2,133 +2,253 @@
 
 A Raspberry Pi based firewall.
 
-## What
+pirewall is a utility that configures a fresh install of [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) to act as a firewall.  It is not in the data path — it simply configures the Linux kernel and services once, then steps out of the way.
 
-This is known to run well on 4GiB Pi 4 (USB 3 ports used for networks).  Likely to run on Pi 3 and 5 as well.
+At a high level: two network interfaces (built-in ethernet + a USB3 adapter) are used.  One faces the public internet (`eth0`) and the other faces the internal network (`eth1`).  NAT and iptables rules handle packet routing between them.  See the [iptables](#iptables) section for diagrams.
 
-pirewall is a simple utility that configures a new install of [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) to act as a firewall.  The target is the 64-bit version, based on Debian 12 (a.k.a. bookworm).
+## Prerequisites
 
-Please note that pirewall **is not** involved in the data path at all.  It simply configures the many features of the linux kernel to provide the functionality.  Its run once and then configures the services.
+- A Raspberry Pi 4 (4 GiB recommended) with a USB3 network adapter for the second interface.  Pi 3 and Pi 5 should also work.
+- The target OS is [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) 64-bit, based on Debian 12 (bookworm).
+- WiFi and Bluetooth are disabled by pirewall — this is an intentional, opinionated choice.
+- Two network interfaces are required:
+  - if physical: the built-in ethernet adapter and a USB3-based network adapter.
+  - vlans should work as well.
 
-It is also extremely opinionated (essentially based on my needs).  This uses the built-in ethernet adaptor  and a USB3 based network adaptor. The wifi and bluetooth are disabled.
+## Quick start
 
-## Why
+### 1. Flash the OS
 
-I manually rebuild my personal firewall every few years.  The Raspberry Pi devices and Debian based OSes have proven quite good.  The basics don't change, so I've automated them.  This should allow others to leverage this.
+Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to install Raspberry Pi OS Lite.  In the imager's advanced settings:
 
-## Why not Ansible (or insert your favorite tool)
+- Set a username **other than `pi`**
+- Add your SSH public key
+- Disable SSH password authentication
+
+### 2. Download and install pirewall
+
+After booting the Pi, download the installer:
+
+```bash
+wget https://github.com/e4jet/pirewall/raw/refs/heads/main/pirewall-1.0.0-linux-arm64.install
+```
+
+Verify the checksum:
+
+```bash
+$ sha512sum pirewall-1.0.0-linux-arm64.install
+8b5811ac6ac4245a213d322b88ced3b940cffaab4aa83679f65622b91ad1b3c633cc62ad84c736c9500571f6bcb7ceee4f8479664549f07fddfdd2f0bf31dbfd pirewall-1.0.0-linux-arm64.install
+```
+
+Install it:
+
+```bash
+chmod 755 pirewall-1.0.0-linux-arm64.install
+sudo ./pirewall-1.0.0-linux-arm64.install
+___________________________________________________________________
+|_|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|
+|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|_|
+|_|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|
+|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|_|
+|_|___|___|__|  ____  _                        _ _  |_|___|___|___|
+|___|___|____| |  _ \(_)_ __ _____      ____ _| | | |___|___|___|_|
+|_|___|___|__| | |_) | | '__/ _ \ \ /\ / / _` | | | |_|___|___|___|
+|___|___|____| |  __/| | | |  __/\ V  V / (_| | | | |___|___|___|_|
+|_|___|___|__| |_|   |_|_|  \___| \_/\_/ \__,_|_|_| |_|___|___|___|
+|___|___|____|______________________________________|___|___|___|_|
+|_|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|
+|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|_|
+|_|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|
+|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|_|
+pirewall installer
+
+Extracting payload...
+Installing pirewall -> /usr/local/bin/pirewall
+Installing rebootOnWatchdog -> /usr/local/bin/rebootOnWatchdog
+Installing examples -> /usr/local/share/pirewall/examples
+
+Installation complete.
+Example configuration files are in /usr/local/share/pirewall/examples
+```
+
+### 3. Run configuration
+
+```bash
+$ sudo pirewall -config
+2026/03/08 18:18:54 INFO starting name=pirewall version=1.0.0
+2026/03/08 18:18:54 INFO 👉 adjusting settings using raspi-config
+2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_blanking 0"
+2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_fan 0 14 80"
+2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_net_names 0"
+2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_change_locale en_US.UTF-8 UTF-8"
+2026/03/08 18:19:02 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/08 18:19:02 INFO running cmd="/usr/bin/raspi-config nonint do_change_timezone America/New_York"
+2026/03/08 18:19:03 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/08 18:19:03 INFO 👉 removing unwanted packages
+2026/03/08 18:19:03 INFO running cmd="/usr/bin/apt-get purge -y --ignore-missing libx11.* libqt.* aardvark-dns wireless-* triggerhappy avahi-daemon"
+2026/03/08 18:19:07 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:07 INFO running cmd="/usr/bin/apt-get update"
+2026/03/08 18:19:11 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:11 INFO running cmd="/usr/bin/apt-get upgrade -y"
+2026/03/08 18:19:14 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:14 INFO running cmd="/usr/bin/apt-get autopurge -y"
+2026/03/08 18:19:16 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:16 INFO running cmd="/usr/bin/apt-get clean"
+2026/03/08 18:19:17 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:17 INFO 👉 adding useful packages
+2026/03/08 18:19:17 INFO running cmd="/usr/bin/apt-get update"
+2026/03/08 18:19:21 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:21 INFO running cmd="/usr/bin/apt-get upgrade -y"
+2026/03/08 18:19:24 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:24 INFO running cmd="/usr/bin/apt-get install -yqq bmon dnsmasq dnsutils iptables-persistent"
+2026/03/08 18:19:26 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:26 INFO running cmd="/usr/bin/apt-get install -yqq git unattended-upgrades apt-listchanges vlan"
+2026/03/08 18:19:29 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:29 INFO running cmd="/usr/bin/apt-get install -yqq netplan.io ddclient nload iftop"
+2026/03/08 18:19:31 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/08 18:19:31 INFO 👉 enabling new services
+2026/03/08 18:19:31 INFO running cmd="/usr/bin/systemctl start unattended-upgrades"
+2026/03/08 18:19:31 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:31 INFO running cmd="/usr/bin/systemctl enable unattended-upgrades"
+2026/03/08 18:19:34 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:34 INFO 👉 disabling unneeded services
+2026/03/08 18:19:34 INFO running cmd="/usr/bin/systemctl stop bluetooth"
+2026/03/08 18:19:34 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:34 INFO running cmd="/usr/bin/systemctl disable bluetooth"
+2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:37 INFO running cmd="/usr/bin/systemctl stop sound.target"
+2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:37 INFO running cmd="/usr/bin/systemctl disable sound.target"
+2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/08 18:19:37 INFO 👉 adjusting /etc/sysctl.conf
+2026/03/08 18:19:37 INFO done name=pirewall
+```
+
+### 4. Copy example config files
+
+Copy the files from the [examples directory](#examples) to their destinations on the Pi.  At minimum you will need:
+
+- Network config: [01-network.yaml](install/examples/01-network.yaml) → `/etc/netplan/`
+- Firewall rules: [rules.v4](install/examples/rules.v4) and [rules.v6](install/examples/rules.v6) → `/etc/iptables/`
+- DNS/DHCP: [dns.conf](install/examples/dns.conf) and [dhcp.conf](install/examples/dhcp.conf) → `/etc/dnsmasq.d/`
+
+Edit each file to match your network before applying.
+
+### 5. Set up config backup
+
+Initialize a git repo for config backups (replace `youruser` with your username):
+
+Add entries to root's crontab (`sudo crontab -e`) to back up the config and watch for network watchdog errors:
+
+```crontab
+* * * * * /usr/local/bin/pirewall -backup youruser > /tmp/backupConfig 2>&1
+* * * * * /home/youruser/bin/rebootOnWatchdog > /var/tmp/rebootOnWatchdog 2>&1
+```
+
+## Why Build This?
+
+I manually rebuild my personal firewall every few years.  The Raspberry Pi devices and Debian-based OSes have proven quite good.  The basics don't change, so I've automated them.  This should allow others to leverage this.
+
+## Why not Ansible (or insert your favorite tool)?
 
 I'm a big fan of Ansible, however it is overkill for what I'm after here.  The goal of this project is to drop off a tiny binary that configures a Raspberry Pi for use as a firewall.
 
-## Why iptables and not nftables
+## Why iptables and not nftables?
 
-My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to make some of the efficiencies of nftables worth the switch.  I'm sure we'll get there eventually, but for now, the [tables](examples/rules.v4) configured in pirewall are tried and trusted.
+My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to make some of the efficiencies of nftables worth the switch.  I'm sure we'll get there eventually, but for now, the [tables](install/examples/rules.v4) configured in pirewall are tried and trusted.
 
-## How does it work
+## Project TODOs
 
-### Configuration
+### Config
 
-- [ ] Create the installer
 - [X] Packages that are not needed are removed
-- [ ] Packages that are needed are added
+- [X] Packages that are needed are added
 - [X] New Services are started and enabled
   - unattended-upgrades
 - [X] Old Services are stopped and disabled
   - bluetooth
   - sound.target
 - [X] The kernel is configured for packet routing and safety
-- [ ] The network is configured
-- [ ] The example rules are put in place
-- [ ] Basic QOS
+- [X] The example configurations are included
 - [X] Device is configured
 - [ ] Automate service fixes
+- [ ] Configure the network automatically
+- [ ] Basic QOS
 
 ## Examples
 
-The examples directory contains some simple examples of configuration files.
+The examples directory contains configuration file templates.  Copy and edit each file to match your environment before using.
 
-- [rules.v4](examples/rules.v4) provides an iptables rule set for ipv4
+- [rules.v4](install/examples/rules.v4) — iptables rule set for ipv4
   - copy to `/etc/iptables`
-- [rules.v6](examples/rules.v6) provides an iptables rule set for ipv6 (drop everything)
+- [rules.v6](install/examples/rules.v6) — iptables rule set for ipv6 (drops everything)
   - copy to `/etc/iptables`
-- [dns.conf](examples/dns.conf) provides basic dns settings for dnsmasq
+- [dns.conf](install/examples/dns.conf) — basic DNS settings for dnsmasq
   - copy to `/etc/dnsmasq.d`
-- [dhcp.conf](examples/dhcp.conf) provides basic dhcp settings for dnsmasq
+- [dhcp.conf](install/examples/dhcp.conf) — basic DHCP settings for dnsmasq
   - copy to `/etc/dnsmasq.d`
-- [01-network.yaml](examples/01-network.yaml) provides a basic 2 interface example.  One interface has a static ip and the other uses dhcp (usually provided by the ISP)
+- [01-network.yaml](install/examples/01-network.yaml) — basic 2-interface network config; one interface uses a static IP (internal), the other uses DHCP (ISP/public)
   - copy to `/etc/netplan`
+- [fw](install/examples/fw/) — empty directory skeleton that can be copied to `~/.pirewall` for config backups
 
 ## netplan
 
-The [Raspberry Pi OS](https://www.raspberrypi.com/software/) comes with [Network Manager](https://networkmanager.dev/).  [NetPlan](https://netplan.readthedocs.io/en/stable/) can leverage Network Manager as a backend.  This project leverages [NetPlan](https://netplan.readthedocs.io/en/stable/) for interface management.  This allows for easy configuration of advanced features like vlans and bridges.
+[Raspberry Pi OS](https://www.raspberrypi.com/software/) comes with [Network Manager](https://networkmanager.dev/).  [NetPlan](https://netplan.readthedocs.io/en/stable/) can use Network Manager as a backend.  This project uses [NetPlan](https://netplan.readthedocs.io/en/stable/) for interface management, which makes it straightforward to configure advanced features like VLANs and bridges.
 
 ## iptables
 
-Network Address Translation (nat) is used by the firewall to allow multiple hosts behind the firewall to "share" a single public ip address (which is assigned to eth0).
+Network Address Translation (NAT) is used by the firewall to allow multiple hosts behind the firewall to share a single public IP address (assigned to eth0).
 
 The following diagram depicts the association between tables and interfaces in the default [ruleset](iptables/rules.v4_example).
 
 ![iptables](./doc/iptables.png)
 
-When a packet is destined for the firewall, it is handled by the INPUT table, which defaults to DROPping the packet.  Our first rule in the INPUT table is to "jump" to the "public" table when a packet shows up on eth0.  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  In most cases this is DROPPED as the firewall doesn't provide services to the outside world.
+When a packet is destined for the firewall itself, it is handled by the INPUT table, which defaults to DROPping the packet.  The first rule in the INPUT table jumps to the "public" chain when a packet arrives on eth0.  That chain determines whether the packet is ACCEPTED, REJECTED, or DROPPED.  In most cases it is DROPPED, since the firewall does not provide services to the outside world.
 
 ![in](./doc/in.png)
 
-Similarly, when a packet is destined for something behind the firewall, it is handled by the FORWARD table, which also defaults to DROPping the packet.  The first rule in the FORWARD table is to "jump" to the "public" table when a packet shows up on eth0 (which is plugged into our provider).  The packet is passed through the 'public' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the host behind the firewall.
+When a packet is destined for a host behind the firewall, it is handled by the FORWARD table (also defaulting to DROP).  The first rule jumps to the "public" chain for packets arriving on eth0.  If ACCEPTED, the packet is translated (NAT) and routed to the internal host.
 
 ![in](./doc/fwdIn.png)
 
-When a packet is destined for something on the public network, it is also handled by the FORWARD table, which defaults to DROPping the packet.  There is a rule in the FOWARD table that "jumps" to the "trusted" table when a packet is received on eth1 (which is plugged into out internal network).  The packet is passed through the 'trusted' table, which determines if the packet should be ACCEPTED, REJECTED or DROPPED.  If it is ACCEPTED, the packet is routed (having been translated) to the on the public network.
+When an internal host sends a packet to the public network, the FORWARD table handles it as well.  A rule jumps to the "trusted" chain for packets arriving on eth1 (the internal interface).  If ACCEPTED, the packet is translated and routed out to the public network.
 
 ![in](./doc/fwdOut.png)
 
 ## dnsmasq
 
-[dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) dnsmasq is a versatile and efficient tool for managing DNS and DHCP services in small to medium-sized networks.  The is an optional service that is installed and ready to be configured.
+[dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) is a lightweight, versatile tool for DNS and DHCP in small to medium-sized networks.  It is installed and ready to be configured via the files in [install/examples/](install/examples/).
 
 ## ddclient
 
-[ddclient](https://ddclient.net/) is a useful tool for a number of use cases.  The is an option service that is installed and ready to be configured.
+[ddclient](https://ddclient.net/) updates dynamic DNS records automatically when your public IP changes — useful when your ISP does not provide a static IP.  It is installed and ready to be configured.
 
 ## Utilities
 
 ### rebootOnWatchdog
 
-`bin/rebootOnWatchdog` is a script that is intended to be run out of cron.  It leverages journalctl to watch for watchdog errors on the network devices.  If found, it reboot the os (init 6).
+`bin/rebootOnWatchdog` is a script intended to be run from cron.  It uses `journalctl` to watch for watchdog errors on network devices and reboots the OS (`init 6`) if any are found.  It also ensures sshd has started.
 
-This script also ensures sshd has started.
+### backup
 
-### mirrorConfig
-
-`bin/mirrorConfig` is a script that copies files into the `~/fw` directory.  To get files "pulled" into this directory, simply touch the filename with the corresponding path.
-
-### backupConfig
-
-`bin/backupConfig` leverages [mirrorConfig](#mirrorconfig) to copy the latest version of the file into `~/fw`.  It then commits the latest version into git.
-
-This script requires root level access.  The git repo must be configured prior to using backupConfig.  The following steps are required.
-
-1. Initialize the repo
-   - `~/fw $ git init`
-1. Configure git for the the root user
-   - `~ $ sudo git config --global user.email "you@example.com"`
-   - `~ $ sudo git config --global user.name "Your Name"`
-
-Example run:
+The `-backup <username>` flag copies live config files into `~<username>/.pirewall` and commits them to git.  Example run:
 
 ```bash
-$ sudo ./bin/backupConfig pi
-cp /etc/netplan/01-network.yaml /home/pi/fw/etc/netplan/01-network.yaml  ...Success.
-cp /etc/sysctl.conf /home/pi/fw/etc/sysctl.conf  ...Success.
-cp /etc/ddclient.conf /home/pi/fw/etc/ddclient.conf  ...Success.
-cp /etc/dnsmasq.d/host.local /home/pi/fw/etc/dnsmasq.d/host.local  ...Success.
-cp /etc/dnsmasq.d/dns.conf /home/pi/fw/etc/dnsmasq.d/dns.conf  ...Success.
-cp /etc/dnsmasq.d/dhcp.conf /home/pi/fw/etc/dnsmasq.d/dhcp.conf  ...Success.
-cp /etc/ssh/sshd_config /home/pi/fw/etc/ssh/sshd_config  ...Success.
-cp /etc/iptables/rules.v6 /home/pi/fw/etc/iptables/rules.v6  ...Success.
-cp /etc/iptables/rules.v4 /home/pi/fw/etc/iptables/rules.v4  ...Success.
-chmod -R 700 /home/pi/fw ...Success.
-chown -R pi /home/pi/fw ...Success.
+$ sudo pirewall -backup youruser
+cp /etc/netplan/01-network.yaml /home/youruser/.pirewall/etc/netplan/01-network.yaml  ...Success.
+cp /etc/sysctl.conf /home/youruser/.pirewall/etc/sysctl.conf  ...Success.
+cp /etc/ddclient.conf /home/youruser/.pirewall/etc/ddclient.conf  ...Success.
+cp /etc/dnsmasq.d/host.local /home/youruser/.pirewall/etc/dnsmasq.d/host.local  ...Success.
+cp /etc/dnsmasq.d/dns.conf /home/youruser/.pirewall/etc/dnsmasq.d/dns.conf  ...Success.
+cp /etc/dnsmasq.d/dhcp.conf /home/youruser/.pirewall/etc/dnsmasq.d/dhcp.conf  ...Success.
+cp /etc/ssh/sshd_config /home/youruser/.pirewall/etc/ssh/sshd_config  ...Success.
+cp /etc/iptables/rules.v6 /home/youruser/.pirewall/etc/iptables/rules.v6  ...Success.
+cp /etc/iptables/rules.v4 /home/youruser/.pirewall/etc/iptables/rules.v4  ...Success.
+chmod -R 700 /home/youruser/.pirewall ...Success.
+chown -R youruser /home/youruser/.pirewall ...Success.
 [master (root-commit) d738497] auto commit
  10 files changed, 344 insertions(+)
  create mode 100755 etc/ddclient.conf
@@ -147,107 +267,39 @@ chown -R pi /home/pi/fw ...Success.
 
 #### bmon
 
-Leverage bmon.
-
-`/usr/bin/bmon`
-
-## Install
-
-Leverage the [Raspberry Pi installer](https://www.raspberrypi.com/software/) to install Raspberry Pi OS Lite.  Using this tool, configure a different user name (not pi), add an ssh key, and disable ssh interactive authentication.
-
-After the new image is used to boot the pi, download [install.tgz](https://github.com/e4jet/pirewall/raw/refs/heads/main/install.tgz).
+[bmon](https://github.com/tgraf/bmon) is a bandwidth monitor and rate estimator.  It is useful for watching real-time traffic on each interface while diagnosing network issues.
 
 ```bash
-$ sha512sum install.tgz
-2249b4f0c30113f45407932a087585f5429eb67d1e36e68ce97f358364da36f34e03e3cd44c5424b14dc20e26130d89a798618031cb19fc0d52aa7def4a88e23  install.tgz
-```
-
-Use tar to extract the tools and then remove the archive.
-
-- `$ tar -xvf install.tgz`
-- `$ cd install/`
-- `$ mv bin ../`
-- `$ mv fw ../`
-- `$ cd ..`
-- `$ rmdir install/`
-
-Run the pirewall binary.
-
-```bash
-$ sudo ./bin/pirewall
-pirewall
-Adjusting settings using raspi-conf.
-	running 👉/usr/bin/raspi-config nonint do_blanking 0
-		😎 process with pid: 25857 finished successfully
-	running 👉/usr/bin/raspi-config nonint do_fan 0 14 80
-		😎 process with pid: 25871 finished successfully
-	running 👉/usr/bin/raspi-config nonint do_net_names 0
-		😎 process with pid: 25894 finished successfully
-	running 👉/usr/bin/raspi-config nonint do_change_locale en_US.UTF-8 UTF-8
-		😎 process with pid: 25908 finished successfully
-	running 👉/usr/bin/raspi-config nonint do_change_timezone America/New_York
-		😎 process with pid: 26479 finished successfully
-Removing packages that aren\'t needed.
-	running 👉/usr/bin/apt-get purge -y libx11.* libqt.* aardvark-dns wireless-* triggerhappy avahi-daemon
-		😎 process with pid: 26650 finished successfully
-	running 👉/usr/bin/apt-get update
-		😎 process with pid: 26653 finished successfully
-	running 👉/usr/bin/apt-get upgrade -y
-		😎 process with pid: 26994 finished successfully
-	running 👉/usr/bin/apt-get autopurge -y
-		😎 process with pid: 26997 finished successfully
-	running 👉/usr/bin/apt-get upgrade -y
-		😎 process with pid: 27000 finished successfully
-Adding useful packages.
-	running 👉/usr/bin/apt-get update
-		😎 process with pid: 27003 finished successfully
-	running 👉/usr/bin/apt-get upgrade -y
-		😎 process with pid: 27344 finished successfully
-	running 👉/usr/bin/apt-get --yes install -yqq bmon dnsmasq dnsutils iptables-persistent git unattended-upgrades apt-listchanges vlan netplan.io ddclient
-		😎 process with pid: 27347 finished successfully
-Enabling new services.
-	running 👉/usr/bin/systemctl start unattended-upgrades
-		😎 process with pid: 27350 finished successfully
-	running 👉/usr/bin/systemctl enable unattended-upgrades
-		😎 process with pid: 27351 finished successfully
-Disabling unneeded services.
-	running 👉/usr/bin/systemctl stop bluetooth
-		😎 process with pid: 27412 finished successfully
-	running 👉/usr/bin/systemctl disable bluetooth
-		😎 process with pid: 27415 finished successfully
-	running 👉/usr/bin/systemctl stop sound.target
-		😎 process with pid: 27476 finished successfully
-	running 👉/usr/bin/systemctl disable sound.target
-		😎 process with pid: 27477 finished successfully
-Adjusting /etc/sysctl.conf.
-Done!
+/usr/bin/bmon
 ```
 
 ## Cleanup
 
 ### sshd
 
-Make sure sshd is only listening on the private interface.  Example below.
+Restrict sshd to listen only on the private interface so it is not reachable from the public internet:
 
-``` bash
+```bash
 $ grep ListenAddress /etc/ssh/sshd_config
 ListenAddress 10.10.10.1
 ```
 
 ### config cron
 
-Leverage root's cron table to backup the configuration.
+Use root's crontab to back up the configuration automatically (replace `youruser` with your username):
 
-`sudo crontab -e`
-
-``` crontab
-* * * * * /home/pi/bin/backupConfig pi > /tmp/backupConfig 2>&1
-* * * * * /home/pi/bin/rebootOnWatchdog > /var/tmp/rebootOnWatchdog 2>&1
+```bash
+sudo crontab -e
 ```
 
-Note that a better username should be used above instead of pi.
+```crontab
+* * * * * /usr/local/bin/pirewall -backup youruser > /tmp/backupConfig 2>&1
+* * * * * /home/youruser/bin/rebootOnWatchdog > /var/tmp/rebootOnWatchdog 2>&1
+```
 
 ### Fix systemd targets
 
-- Change `network.target` to `network-online.target` in `/etc/systemd/system/multi-user.target.wants/ssh.service`
-- Change `network.target` to `network-online.target` in `/etc/systemd/system/multi-user.target.wants/dnsmasq.service`
+Some services start before the network is fully online.  Fix this by changing `network.target` to `network-online.target` in:
+
+- `/etc/systemd/system/multi-user.target.wants/ssh.service`
+- `/etc/systemd/system/multi-user.target.wants/dnsmasq.service`

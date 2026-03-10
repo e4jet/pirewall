@@ -1,5 +1,5 @@
 /*
-(c) Copyright Eric Paul Forgette
+(c) Copyright 2023 Eric Paul Forgette
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,57 +16,87 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/e4jet/pirewall/configure"
+	"github.com/e4jet/pirewall/internal/backup"
+	"github.com/e4jet/pirewall/internal/configure"
 )
 
 const (
-	// my name
-	me   = "pirewall"
-	fail = 3
-	pass = 0
+	me      = "pirewall"
+	version = "1.0.0"
+	fail    = 3
 )
 
 func main() {
-	fmt.Printf("%s\n", me)
-	err := configure.ConfigRaspi()
-	if err != nil {
-		fmt.Println(err)
+	versionFlag := flag.Bool("version", false, "print version and exit")
+	configFlag := flag.Bool("config", false, "run installation and configuration")
+	backupFlag := flag.String("backup", "", "mirror live config files into ~`user`/.pirewall and commit to git")
+
+	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("%s %s\n", me, version)
+		return
+	}
+
+	if *backupFlag != "" {
+		if err := backup.Init(context.Background(), *backupFlag); err != nil {
+			slog.Error("Init failed", "err", err)
+			os.Exit(fail)
+		}
+
+		if err := backup.Backup(context.Background(), *backupFlag); err != nil {
+			slog.Error("Backup failed", "err", err)
+			os.Exit(fail)
+		}
+
+		return
+	}
+
+	if !*configFlag {
+		flag.Usage()
+		return
+	}
+
+	slog.Info("starting", "name", me, "version", version)
+
+	if err := install(context.Background()); err != nil {
+		slog.Error("install failed", "err", err)
 		os.Exit(fail)
 	}
 
-	err = configure.RemoveUnwantedPackages()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(fail)
+	slog.Info("done", "name", me)
+}
+
+func install(ctx context.Context) error {
+	if err := configure.ConfigRaspi(ctx); err != nil {
+		return fmt.Errorf("ConfigRaspi: %w", err)
 	}
 
-	err = configure.AddPackages()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(fail)
+	if err := configure.RemoveUnwantedPackages(ctx); err != nil {
+		return fmt.Errorf("RemoveUnwantedPackages: %w", err)
 	}
 
-	err = configure.EnableNewServices()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(fail)
+	if err := configure.AddPackages(ctx); err != nil {
+		return fmt.Errorf("AddPackages: %w", err)
 	}
 
-	err = configure.DisableUnwantedServices()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(fail)
+	if err := configure.EnableNewServices(ctx); err != nil {
+		return fmt.Errorf("EnableNewServices: %w", err)
 	}
 
-	err = configure.ConfigSysCtl()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(fail)
+	if err := configure.DisableUnwantedServices(ctx); err != nil {
+		return fmt.Errorf("DisableUnwantedServices: %w", err)
 	}
 
-	fmt.Println("Done!")
-	os.Exit(0)
+	if err := configure.ConfigSysCtl(ctx); err != nil {
+		return fmt.Errorf("ConfigSysCtl: %w", err)
+	}
+
+	return nil
 }
