@@ -210,7 +210,6 @@ The examples directory contains configuration file templates.  Copy and edit eac
   - copy to `/etc/dnsmasq.d`
 - [01-network.yaml](install/examples/01-network.yaml) — basic 2-interface network config; one interface uses a static IP (internal), the other uses DHCP (ISP/public)
   - copy to `/etc/netplan`
-- [fw](install/examples/fw/) — empty directory skeleton that can be copied to `~/.pirewall` for config backups
 
 ## netplan
 
@@ -252,7 +251,9 @@ When an internal host sends a packet to the public network, the FORWARD table ha
 
 ### backup
 
-The `-backup <username>` flag copies live config files into `~<username>/.pirewall` and commits them to git.  Example run:
+The `pirewall -backup <username>` combination copies live config files into `~<username>/.pirewall` and commits them to git.  To add a file to the backup, touch the corresponding file in the ~/.pirewall directory.  Make sure you trust the user that this is configured for, they can get access to any file using this process.
+
+Example run:
 
 ```bash
 $ sudo pirewall -backup youruser
