@@ -2,14 +2,14 @@
 
 A Raspberry Pi based firewall.
 
-pirewall is a utility that configures a fresh install of [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) to act as a firewall.  It is not in the data path — it simply configures the Linux kernel and services once, then steps out of the way.
+pirewall is a utility that configures a fresh install of [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) to act as a firewall.  The pirewall binary is not in the data path — it simply configures the Linux kernel and services once, then steps out of the way.
 
 At a high level: two network interfaces (built-in ethernet + a USB3 adapter) are used.  One faces the public internet (`eth0`) and the other faces the internal network (`eth1`).  NAT and iptables rules handle packet routing between them.  See the [iptables](#iptables) section for diagrams.
 
 ## Prerequisites
 
-- A Raspberry Pi 4 (4 GiB recommended) with a USB3 network adapter for the second interface.  Pi 3 and Pi 5 should also work.
-- The target OS is [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) 64-bit, based on Debian 12 (bookworm).
+- A Raspberry Pi 4 (2 GiB recommended) with a USB3 network adapter for the second interface.  Pi 3 and Pi 5 should also work.
+- The target OS is [Raspberry Pi OS Lite](https://www.raspberrypi.com/software/) 64-bit, based on Debian 12 (Bookworm) or Debian 13 (Trixie).
 - WiFi and Bluetooth are disabled by pirewall — this is an intentional, opinionated choice.
 - Two network interfaces are required:
   - if physical: the built-in ethernet adapter and a USB3-based network adapter.
@@ -21,7 +21,7 @@ At a high level: two network interfaces (built-in ethernet + a USB3 adapter) are
 
 Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to install Raspberry Pi OS Lite.  In the imager's advanced settings:
 
-- Set a username **other than `pi`**
+- Set a username **other than `pi`** (for security reasons)
 - Add your SSH public key
 - Disable SSH password authentication
 
@@ -37,7 +37,7 @@ Verify the checksum:
 
 ```bash
 $ sha512sum pirewall-1.0.0-linux-arm64.install
-8b5811ac6ac4245a213d322b88ced3b940cffaab4aa83679f65622b91ad1b3c633cc62ad84c736c9500571f6bcb7ceee4f8479664549f07fddfdd2f0bf31dbfd pirewall-1.0.0-linux-arm64.install
+b8d75e0c570b66d31dd401a927f549843db0678257d3131fc0354620d0f8e19b2ec6d89ce576a0d1e10ec9e1a27c5f19df8ccc1f65c1b225ce2e551e8ae76f7c pirewall-1.0.0-linux-arm64.install
 ```
 
 Install it:
@@ -75,56 +75,74 @@ Example configuration files are in /usr/local/share/pirewall/examples
 
 ```bash
 $ sudo pirewall -config
-2026/03/08 18:18:54 INFO starting name=pirewall version=1.0.0
-2026/03/08 18:18:54 INFO 👉 adjusting settings using raspi-config
-2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_blanking 0"
-2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
-2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_fan 0 14 80"
-2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
-2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_net_names 0"
-2026/03/08 18:18:54 INFO command succeeded cmd=/usr/bin/raspi-config
-2026/03/08 18:18:54 INFO running cmd="/usr/bin/raspi-config nonint do_change_locale en_US.UTF-8 UTF-8"
-2026/03/08 18:19:02 INFO command succeeded cmd=/usr/bin/raspi-config
-2026/03/08 18:19:02 INFO running cmd="/usr/bin/raspi-config nonint do_change_timezone America/New_York"
-2026/03/08 18:19:03 INFO command succeeded cmd=/usr/bin/raspi-config
-2026/03/08 18:19:03 INFO 👉 removing unwanted packages
-2026/03/08 18:19:03 INFO running cmd="/usr/bin/apt-get purge -y --ignore-missing libx11.* libqt.* aardvark-dns wireless-* triggerhappy avahi-daemon"
-2026/03/08 18:19:07 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:07 INFO running cmd="/usr/bin/apt-get update"
-2026/03/08 18:19:11 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:11 INFO running cmd="/usr/bin/apt-get upgrade -y"
-2026/03/08 18:19:14 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:14 INFO running cmd="/usr/bin/apt-get autopurge -y"
-2026/03/08 18:19:16 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:16 INFO running cmd="/usr/bin/apt-get clean"
-2026/03/08 18:19:17 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:17 INFO 👉 adding useful packages
-2026/03/08 18:19:17 INFO running cmd="/usr/bin/apt-get update"
-2026/03/08 18:19:21 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:21 INFO running cmd="/usr/bin/apt-get upgrade -y"
-2026/03/08 18:19:24 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:24 INFO running cmd="/usr/bin/apt-get install -yqq bmon dnsmasq dnsutils iptables-persistent"
-2026/03/08 18:19:26 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:26 INFO running cmd="/usr/bin/apt-get install -yqq git unattended-upgrades apt-listchanges vlan"
-2026/03/08 18:19:29 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:29 INFO running cmd="/usr/bin/apt-get install -yqq netplan.io ddclient nload iftop"
-2026/03/08 18:19:31 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/08 18:19:31 INFO 👉 enabling new services
-2026/03/08 18:19:31 INFO running cmd="/usr/bin/systemctl start unattended-upgrades"
-2026/03/08 18:19:31 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:31 INFO running cmd="/usr/bin/systemctl enable unattended-upgrades"
-2026/03/08 18:19:34 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:34 INFO 👉 disabling unneeded services
-2026/03/08 18:19:34 INFO running cmd="/usr/bin/systemctl stop bluetooth"
-2026/03/08 18:19:34 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:34 INFO running cmd="/usr/bin/systemctl disable bluetooth"
-2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:37 INFO running cmd="/usr/bin/systemctl stop sound.target"
-2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:37 INFO running cmd="/usr/bin/systemctl disable sound.target"
-2026/03/08 18:19:37 INFO command succeeded cmd=/usr/bin/systemctl
-2026/03/08 18:19:37 INFO 👉 adjusting /etc/sysctl.conf
-2026/03/08 18:19:37 INFO done name=pirewall
+2026/03/09 22:13:37 INFO starting name=pirewall version=1.0.0
+2026/03/09 22:13:37 INFO 👉 adjusting settings using raspi-config
+2026/03/09 22:13:37 INFO running cmd="/usr/bin/raspi-config nonint do_blanking 0"
+2026/03/09 22:13:37 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/09 22:13:37 INFO running cmd="/usr/bin/raspi-config nonint do_fan 0 14 80"
+2026/03/09 22:13:37 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/09 22:13:37 INFO running cmd="/usr/bin/raspi-config nonint do_net_names 0"
+2026/03/09 22:13:37 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/09 22:13:37 INFO running cmd="/usr/bin/raspi-config nonint do_change_locale en_US.UTF-8 UTF-8"
+2026/03/09 22:13:46 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/09 22:13:46 INFO running cmd="/usr/bin/raspi-config nonint do_change_timezone America/New_York"
+2026/03/09 22:13:46 INFO command succeeded cmd=/usr/bin/raspi-config
+2026/03/09 22:13:46 INFO 👉 removing unwanted packages
+2026/03/09 22:13:46 INFO running cmd="/usr/bin/apt-get purge -y --ignore-missing libx11.* libqt.* aardvark-dns wireless-* triggerhappy avahi-daemon"
+2026/03/09 22:13:50 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:13:50 INFO running cmd="/usr/bin/apt-get update"
+2026/03/09 22:13:54 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:13:54 INFO running cmd="/usr/bin/apt-get upgrade -y"
+2026/03/09 22:13:57 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:13:57 INFO running cmd="/usr/bin/apt-get autopurge -y"
+2026/03/09 22:14:00 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:00 INFO running cmd="/usr/bin/apt-get clean"
+2026/03/09 22:14:00 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:00 INFO 👉 adding useful packages
+2026/03/09 22:14:00 INFO running cmd="/usr/bin/apt-get update"
+2026/03/09 22:14:04 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:04 INFO running cmd="/usr/bin/apt-get upgrade -y"
+2026/03/09 22:14:07 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:07 INFO running cmd="/usr/bin/apt-get install -yqq bmon"
+2026/03/09 22:14:10 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:10 INFO running cmd="/usr/bin/apt-get install -yqq dnsmasq"
+2026/03/09 22:14:12 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:12 INFO running cmd="/usr/bin/apt-get install -yqq dnsutils"
+2026/03/09 22:14:15 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:15 INFO running cmd="/usr/bin/apt-get install -yqq iptables-persistent"
+2026/03/09 22:14:17 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:17 INFO running cmd="/usr/bin/apt-get install -yqq git"
+2026/03/09 22:14:20 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:20 INFO running cmd="/usr/bin/apt-get install -yqq unattended-upgrades"
+2026/03/09 22:14:23 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:23 INFO running cmd="/usr/bin/apt-get install -yqq apt-listchanges"
+2026/03/09 22:14:25 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:25 INFO running cmd="/usr/bin/apt-get install -yqq vlan"
+2026/03/09 22:14:28 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:28 INFO running cmd="/usr/bin/apt-get install -yqq netplan.io"
+2026/03/09 22:14:31 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:31 INFO running cmd="/usr/bin/apt-get install -yqq ddclient"
+2026/03/09 22:14:33 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:33 INFO running cmd="/usr/bin/apt-get install -yqq nload"
+2026/03/09 22:14:36 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:36 INFO running cmd="/usr/bin/apt-get install -yqq iftop"
+2026/03/09 22:14:38 INFO command succeeded cmd=/usr/bin/apt-get
+2026/03/09 22:14:38 INFO 👉 enabling new services
+2026/03/09 22:14:38 INFO running cmd="/usr/bin/systemctl start unattended-upgrades"
+2026/03/09 22:14:39 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:39 INFO running cmd="/usr/bin/systemctl enable unattended-upgrades"
+2026/03/09 22:14:41 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:41 INFO 👉 disabling unneeded services
+2026/03/09 22:14:41 INFO running cmd="/usr/bin/systemctl stop bluetooth"
+2026/03/09 22:14:41 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:41 INFO running cmd="/usr/bin/systemctl disable bluetooth"
+2026/03/09 22:14:43 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:43 INFO running cmd="/usr/bin/systemctl stop sound.target"
+2026/03/09 22:14:43 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:43 INFO running cmd="/usr/bin/systemctl disable sound.target"
+2026/03/09 22:14:44 INFO command succeeded cmd=/usr/bin/systemctl
+2026/03/09 22:14:44 INFO 👉 adjusting /etc/sysctl.conf
+2026/03/09 22:14:44 INFO done name=pirewall
 ```
 
 ### 4. Copy example config files

@@ -81,9 +81,19 @@ func (a *aptInstall) Name() string {
 }
 
 func (a *aptInstall) Run(ctx context.Context) (any, error) {
-	out, _, err := util.ExecCommandOutput(ctx, aptgetBin, append([]string{"install", "-yqq"}, a.packages...))
+	var combined []byte
 
-	return out, err
+	for _, pkg := range a.packages {
+		out, _, err := util.ExecCommandOutput(ctx, aptgetBin, []string{"install", "-yqq", pkg})
+
+		combined = append(combined, out...)
+
+		if err != nil {
+			return combined, err
+		}
+	}
+
+	return combined, nil
 }
 
 func (a *aptInstall) Rollback(_ context.Context) error {
