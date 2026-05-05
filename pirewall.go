@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/e4jet/pirewall/internal/backup"
 	"github.com/e4jet/pirewall/internal/configure"
+	"github.com/e4jet/pirewall/internal/restore"
 )
 
 const (
@@ -32,10 +34,34 @@ const (
 	fail    = 3
 )
 
+// stringSlice is a flag.Value that accepts a repeated flag (each occurrence
+// appends to the slice). Used for -restore-path.
+type stringSlice []string
+
+func (s *stringSlice) String() string {
+	if s == nil {
+		return ""
+	}
+
+	return strings.Join(*s, ",")
+}
+
+func (s *stringSlice) Set(v string) error {
+	*s = append(*s, v)
+
+	return nil
+}
+
 func main() {
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	configFlag := flag.Bool("config", false, "run installation and configuration")
 	backupFlag := flag.String("backup", "", "mirror live config files into ~`user`/.pirewall and commit to git")
+	restoreFlag := flag.String("restore", "", "restore live config files from ~`user`/.pirewall (preserves existing target mode and ownership)")
+	dryRunFlag := flag.Bool("dry-run", false, "with -restore: log actions but make no filesystem changes")
+
+	var restorePaths stringSlice
+
+	flag.Var(&restorePaths, "restore-path", "with -restore: restrict to this relative path (repeatable)")
 
 	flag.Parse()
 
@@ -52,6 +78,21 @@ func main() {
 
 		if err := backup.Backup(context.Background(), *backupFlag); err != nil {
 			slog.Error("Backup failed", "err", err)
+			os.Exit(fail)
+		}
+
+		return
+	}
+
+	if *restoreFlag != "" {
+		opts := restore.Options{
+			Username: *restoreFlag,
+			Paths:    []string(restorePaths),
+			DryRun:   *dryRunFlag,
+		}
+
+		if err := restore.Restore(context.Background(), opts); err != nil {
+			slog.Error("Restore failed", "err", err)
 			os.Exit(fail)
 		}
 

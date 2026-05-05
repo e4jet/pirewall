@@ -58,7 +58,7 @@ var (
 //
 // Source files that do not exist or are not regular files are silently skipped.
 func Mirror(ctx context.Context, username string) error {
-	targetDir, uid, gid, err := userTargetDir(username)
+	targetDir, uid, gid, err := UserTargetDir(username)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func Mirror(ctx context.Context, username string) error {
 // rooted at ~/.pirewall using "auto commit" as the commit message.
 // If there is nothing to commit, no git operations are performed.
 func Backup(ctx context.Context, username string) error {
-	targetDir, uid, gid, err := userTargetDir(username)
+	targetDir, uid, gid, err := UserTargetDir(username)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,12 @@ func gitCommit(ctx context.Context, dir string) error {
 	return nil
 }
 
-func userTargetDir(username string) (targetDir string, uid, gid int, err error) {
+// UserTargetDir resolves the pirewall data directory for a system user.
+// It returns the absolute path to ~username/.pirewall together with the
+// user's numeric uid and gid. It returns an error if the user cannot be
+// looked up, has a non-numeric uid/gid, or has no home directory
+// (ErrNoHomeDir).
+func UserTargetDir(username string) (targetDir string, uid, gid int, err error) {
 	u, err := user.Lookup(username)
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("lookup user %q: %w", username, err)

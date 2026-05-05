@@ -48,7 +48,7 @@ var stubPaths = []string{
 // Existing files are not overwritten. The directory tree is chowned to
 // username after creation.
 func Init(ctx context.Context, username string) error {
-	targetDir, uid, gid, err := userTargetDir(username)
+	targetDir, uid, gid, err := UserTargetDir(username)
 	if err != nil {
 		return err
 	}
