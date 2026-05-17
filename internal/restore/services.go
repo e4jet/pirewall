@@ -15,48 +15,43 @@ limitations under the License.
 */
 
 // Package restore copies regular files from ~user/.pirewall/<rel> back to
-// /<rel> on the live filesystem, preserving the live target's mode and
-// ownership.
+// /<rel> on the live filesystem, preserving the live target's permission
+// bits and ownership.
 package restore
 
-import "strings"
-
-// pathHint maps a restored file's relative-path prefix to a short reload
-// hint to be shown to the operator after restore. The first matching prefix
-// wins; entries are ordered with the more-specific prefix first when the
-// space could overlap.
-var pathHint = []struct {
-	prefix string
-	hint   string
-}{
-	{"etc/dnsmasq.d/", "systemctl restart dnsmasq"},
-	{"etc/iptables/", "systemctl restart netfilter-persistent"},
-	{"etc/netplan/", "netplan apply"},
-	{"etc/ssh/sshd_config", "systemctl restart ssh"},
-	{"etc/sysctl.conf", "sysctl --system"},
-	{"etc/sysctl.d/", "sysctl --system"},
-	{"etc/ddclient.conf", "systemctl restart ddclient"},
-}
+import "github.com/e4jet/pirewall/internal/backup"
 
 // hintsFor returns the unique set of reload hints triggered by the given
-// relative paths, in the order each hint is first encountered. Paths matching
-// no prefix contribute nothing.
+// relative paths, in the order each hint is first encountered. Paths not in
+// backup.TrackedPaths(), or paths whose tracked entry has an empty Hint,
+// contribute nothing.
 func hintsFor(relPaths []string) []string {
+	tracked := backup.TrackedPaths()
+
+	hintByRel := make(map[string]string, len(tracked))
+	for _, tp := range tracked {
+		if tp.Hint != "" {
+			hintByRel[tp.Rel] = tp.Hint
+		}
+	}
+
 	seen := make(map[string]struct{})
 
 	var out []string
 
 	for _, p := range relPaths {
-		for _, ph := range pathHint {
-			if strings.HasPrefix(p, ph.prefix) {
-				if _, ok := seen[ph.hint]; !ok {
-					seen[ph.hint] = struct{}{}
-					out = append(out, ph.hint)
-				}
-
-				break
-			}
+		hint, ok := hintByRel[p]
+		if !ok {
+			continue
 		}
+
+		if _, dup := seen[hint]; dup {
+			continue
+		}
+
+		seen[hint] = struct{}{}
+
+		out = append(out, hint)
 	}
 
 	return out

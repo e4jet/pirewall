@@ -1,4 +1,4 @@
-//go:build unit
+//go:build unit && unix
 
 /*
 (c) Copyright 2026 Eric Paul Forgette
@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -30,6 +31,12 @@ import (
 	"syscall"
 	"testing"
 )
+
+// discardLogger returns a slog.Logger that writes to io.Discard so tests don't
+// pollute stdout/stderr.
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
 
 // newTestRestorer builds a restorer wired to the given source/dest temp dirs
 // and a no-op chown so tests pass when not running as root.
@@ -42,6 +49,7 @@ func newTestRestorer(t *testing.T, targetDir, root string, paths []string, dryRu
 		paths:     paths,
 		dryRun:    dryRun,
 		chown:     func(string, int, int) error { return nil },
+		logger:    discardLogger(),
 	}
 }
 
@@ -167,6 +175,23 @@ func TestBuildWorkList_FullWalk(t *testing.T) {
 			t.Fatalf("rels: got %v want %v", got, want)
 		}
 	})
+
+	t.Run("aborts on cancelled context", func(t *testing.T) {
+		t.Parallel()
+
+		target := t.TempDir()
+		writeFile(t, filepath.Join(target, "etc/foo.conf"), []byte("x"), 0o600)
+
+		r := newTestRestorer(t, target, t.TempDir(), nil, false)
+
+		cancelled, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := r.buildWorkList(cancelled)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled; got %v", err)
+		}
+	})
 }
 
 func TestBuildWorkList_PathFilter(t *testing.T) {
@@ -265,6 +290,78 @@ func TestBuildWorkList_PathFilter(t *testing.T) {
 			t.Fatalf("expected ErrSourceMissing; got %v", err)
 		}
 	})
+
+	t.Run("rejects symlink source", func(t *testing.T) {
+		t.Parallel()
+
+		target := t.TempDir()
+		writeFile(t, filepath.Join(target, "etc/real.conf"), []byte("real"), 0o600)
+
+		if err := os.Symlink(filepath.Join(target, "etc/real.conf"),
+			filepath.Join(target, "etc/link.conf")); err != nil {
+			t.Fatal(err)
+		}
+
+		r := newTestRestorer(t, target, t.TempDir(),
+			[]string{"etc/link.conf"}, false)
+
+		_, err := r.buildWorkList(ctx)
+		if !errors.Is(err, ErrSourceMissing) {
+			t.Fatalf("expected ErrSourceMissing for symlink; got %v", err)
+		}
+	})
+}
+
+func TestReadSource(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reads regular file content", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		src := filepath.Join(dir, "foo.conf")
+		writeFile(t, src, []byte("hello"), 0o600)
+
+		got, err := readSource(src)
+		if err != nil {
+			t.Fatalf("readSource: %v", err)
+		}
+
+		if string(got) != "hello" {
+			t.Errorf("content: got %q; want %q", got, "hello")
+		}
+	})
+
+	t.Run("rejects symlink via O_NOFOLLOW", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		real := filepath.Join(dir, "real.conf")
+		writeFile(t, real, []byte("real"), 0o600)
+
+		link := filepath.Join(dir, "link.conf")
+		if err := os.Symlink(real, link); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := readSource(link)
+		if err == nil {
+			t.Fatal("expected error opening symlink with O_NOFOLLOW; got nil")
+		}
+	})
+
+	t.Run("rejects empty regular file", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		src := filepath.Join(dir, "empty.conf")
+		writeFile(t, src, nil, 0o600)
+
+		_, err := readSource(src)
+		if !errors.Is(err, ErrSourceMissing) {
+			t.Fatalf("expected ErrSourceMissing; got %v", err)
+		}
+	})
 }
 
 // equalStringSlices is a tiny helper used across tests in this file.
@@ -284,6 +381,8 @@ func equalStringSlices(a, b []string) bool {
 
 func TestWriteOne(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	t.Run("writes content with mode and chowns", func(t *testing.T) {
 		t.Parallel()
@@ -308,9 +407,10 @@ func TestWriteOne(t *testing.T) {
 
 				return nil
 			},
+			logger: discardLogger(),
 		}
 
-		if err := r.writeOne(workItem{dst: dst}, []byte("hello"), 0o640, 1234, 5678); err != nil {
+		if err := r.writeOne(ctx, workItem{dst: dst}, []byte("hello"), 0o640, 1234, 5678); err != nil {
 			t.Fatalf("writeOne: %v", err)
 		}
 
@@ -356,9 +456,10 @@ func TestWriteOne(t *testing.T) {
 			chown: func(string, int, int) error {
 				return errors.New("simulated chown failure")
 			},
+			logger: discardLogger(),
 		}
 
-		err := r.writeOne(workItem{dst: dst}, []byte("hello"), 0o644, 0, 0)
+		err := r.writeOne(ctx, workItem{dst: dst}, []byte("hello"), 0o644, 0, 0)
 		if err == nil {
 			t.Fatal("expected error; got nil")
 		}
@@ -386,16 +487,46 @@ func TestWriteOne(t *testing.T) {
 		dst := filepath.Join(root, "deep", "nested", "etc", "foo.conf")
 
 		r := &restorer{
-			root:  root,
-			chown: func(string, int, int) error { return nil },
+			root:   root,
+			chown:  func(string, int, int) error { return nil },
+			logger: discardLogger(),
 		}
 
-		if err := r.writeOne(workItem{dst: dst}, []byte("x"), 0o644, 0, 0); err != nil {
+		if err := r.writeOne(ctx, workItem{dst: dst}, []byte("x"), 0o644, 0, 0); err != nil {
 			t.Fatalf("writeOne: %v", err)
 		}
 
 		if _, err := os.Stat(dst); err != nil {
 			t.Fatalf("dst not created: %v", err)
+		}
+	})
+
+	t.Run("fails when parent dir cannot be created", func(t *testing.T) {
+		t.Parallel()
+
+		// Make a read-only directory and try to create a subdir under it.
+		root := t.TempDir()
+		readonly := filepath.Join(root, "ro")
+
+		if err := os.Mkdir(readonly, 0o555); err != nil {
+			t.Fatal(err)
+		}
+
+		t.Cleanup(func() {
+			_ = os.Chmod(readonly, 0o755)
+		})
+
+		dst := filepath.Join(readonly, "sub", "foo.conf")
+
+		r := &restorer{
+			root:   root,
+			chown:  func(string, int, int) error { return nil },
+			logger: discardLogger(),
+		}
+
+		err := r.writeOne(ctx, workItem{dst: dst}, []byte("x"), 0o644, 0, 0)
+		if err == nil {
+			t.Fatal("expected mkdir error; got nil")
 		}
 	})
 }
@@ -478,6 +609,46 @@ func TestRun(t *testing.T) {
 		}
 	})
 
+	t.Run("preserves existing target ownership", func(t *testing.T) {
+		t.Parallel()
+
+		target := t.TempDir()
+		writeFile(t, filepath.Join(target, "etc/foo.conf"), []byte("new"), 0o600)
+
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "etc/foo.conf"), []byte("old"), 0o600)
+
+		// Capture what uid/gid would be applied by chown to verify the live
+		// target's ownership was read and propagated.
+		liveUID, liveGID := statOwner(t, filepath.Join(root, "etc/foo.conf"))
+
+		var (
+			capturedUID = -1
+			capturedGID = -1
+		)
+
+		r := &restorer{
+			targetDir: target,
+			root:      root,
+			chown: func(_ string, uid, gid int) error {
+				capturedUID = uid
+				capturedGID = gid
+
+				return nil
+			},
+			logger: discardLogger(),
+		}
+
+		if err := r.run(ctx); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+
+		if capturedUID != liveUID || capturedGID != liveGID {
+			t.Errorf("chown args: uid=%d gid=%d; want %d/%d (existing target)",
+				capturedUID, capturedGID, liveUID, liveGID)
+		}
+	})
+
 	t.Run("uses defaults when target file is missing", func(t *testing.T) {
 		t.Parallel()
 
@@ -500,6 +671,7 @@ func TestRun(t *testing.T) {
 
 				return nil
 			},
+			logger: discardLogger(),
 		}
 
 		if err := r.run(ctx); err != nil {
@@ -540,6 +712,29 @@ func TestRun(t *testing.T) {
 
 		if _, statErr := os.Stat(filepath.Join(root, "etc/good.conf")); !os.IsNotExist(statErr) {
 			t.Errorf("good.conf should not exist; stat err: %v", statErr)
+		}
+	})
+
+	t.Run("aborts on cancelled context before writing", func(t *testing.T) {
+		t.Parallel()
+
+		target := t.TempDir()
+		writeFile(t, filepath.Join(target, "etc/foo.conf"), []byte("new"), 0o600)
+
+		root := t.TempDir()
+
+		r := newTestRestorer(t, target, root, nil, false)
+
+		cancelled, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		err := r.run(cancelled)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled; got %v", err)
+		}
+
+		if _, statErr := os.Stat(filepath.Join(root, "etc/foo.conf")); !os.IsNotExist(statErr) {
+			t.Errorf("foo.conf should not exist after cancellation; stat err: %v", statErr)
 		}
 	})
 }
@@ -608,12 +803,14 @@ func TestRun_DryRun(t *testing.T) {
 	})
 }
 
-// not parallel: this test swaps slog.Default()
 func TestRun_PrintsHints(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
-	// not parallel: this test swaps slog.Default()
 	t.Run("emits deduplicated reload hints", func(t *testing.T) {
+		t.Parallel()
+
 		target := t.TempDir()
 		writeFile(t, filepath.Join(target, "etc/sysctl.conf"), []byte("a"), 0o600)
 		writeFile(t, filepath.Join(target, "etc/sysctl.d/90-override.conf"), []byte("b"), 0o600)
@@ -621,17 +818,14 @@ func TestRun_PrintsHints(t *testing.T) {
 
 		root := t.TempDir()
 
+		var buf bytes.Buffer
+
 		r := &restorer{
 			targetDir: target,
 			root:      root,
 			chown:     func(string, int, int) error { return nil },
+			logger:    slog.New(slog.NewTextHandler(&buf, nil)),
 		}
-
-		var buf bytes.Buffer
-
-		prev := slog.Default()
-		slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
-		t.Cleanup(func() { slog.SetDefault(prev) })
 
 		if err := r.run(ctx); err != nil {
 			t.Fatalf("run: %v", err)
@@ -651,4 +845,13 @@ func TestRun_PrintsHints(t *testing.T) {
 			t.Errorf("expected 'sysctl --system' to appear exactly once; got %d:\n%s", got, out)
 		}
 	})
+}
+
+func TestRestore_EmptyUsername(t *testing.T) {
+	t.Parallel()
+
+	err := Restore(context.Background(), Options{Username: ""})
+	if !errors.Is(err, ErrEmptyUsername) {
+		t.Fatalf("expected ErrEmptyUsername; got %v", err)
+	}
 }

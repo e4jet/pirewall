@@ -28,6 +28,7 @@ package util
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -65,15 +66,21 @@ func FileExists(path string) (exists bool, dir bool, err error) {
 	return true, info.IsDir(), nil
 }
 
-// FileWriteStrings writes lines to path atomically: it writes to a temporary
-// file in the same directory, then renames it into place so a crash during
-// the write leaves the original file intact.
-func FileWriteStrings(path string, lines []string) (err error) {
+// FileWriteAtomic writes content to path atomically: it creates a temporary
+// file in the same directory, writes and fsyncs the content, applies mode
+// (via fchmod on the open fd), optionally chowns the temp file, and renames
+// it into place. On any failure after temp creation, the temp file is removed.
+//
+// chown is the function invoked to apply ownership to the temp file before
+// rename; pass nil to skip ownership changes. uid/gid are ignored when chown
+// is nil.
+func FileWriteAtomic(path string, content []byte, mode os.FileMode,
+	chown func(string, int, int) error, uid, gid int) (err error) {
 	dir := filepath.Dir(path)
 
 	tmp, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
+		return fmt.Errorf("create temp in %s: %w", dir, err)
 	}
 
 	tmpName := tmp.Name()
@@ -84,30 +91,32 @@ func FileWriteStrings(path string, lines []string) (err error) {
 		}
 	}()
 
-	if err = tmp.Chmod(defaultFileMode); err != nil {
+	if _, err = tmp.Write(content); err != nil {
+		_ = tmp.Close()
+
+		return fmt.Errorf("write %s: %w", tmpName, err)
+	}
+
+	if err = tmp.Sync(); err != nil {
+		_ = tmp.Close()
+
+		return fmt.Errorf("sync %s: %w", tmpName, err)
+	}
+
+	if err = tmp.Chmod(mode); err != nil {
 		_ = tmp.Close()
 
 		return fmt.Errorf("chmod %s: %w", tmpName, err)
 	}
 
-	w := bufio.NewWriter(tmp)
-
-	for _, line := range lines {
-		if _, err = w.WriteString(strings.TrimRight(line, "\n") + "\n"); err != nil {
-			_ = tmp.Close()
-
-			return fmt.Errorf("write %s: %w", tmpName, err)
-		}
-	}
-
-	if err = w.Flush(); err != nil {
-		_ = tmp.Close()
-
-		return fmt.Errorf("flush %s: %w", tmpName, err)
-	}
-
 	if err = tmp.Close(); err != nil {
 		return fmt.Errorf("close %s: %w", tmpName, err)
+	}
+
+	if chown != nil {
+		if err = chown(tmpName, uid, gid); err != nil {
+			return fmt.Errorf("chown %s: %w", tmpName, err)
+		}
 	}
 
 	if err = os.Rename(tmpName, path); err != nil {
@@ -115,6 +124,20 @@ func FileWriteStrings(path string, lines []string) (err error) {
 	}
 
 	return nil
+}
+
+// FileWriteStrings writes lines to path atomically using FileWriteAtomic. Each
+// line has any trailing newlines trimmed and is terminated with a single \n.
+// The file is written with mode 0644 and no ownership change.
+func FileWriteStrings(path string, lines []string) error {
+	var buf bytes.Buffer
+
+	for _, line := range lines {
+		buf.WriteString(strings.TrimRight(line, "\n"))
+		buf.WriteByte('\n')
+	}
+
+	return FileWriteAtomic(path, buf.Bytes(), defaultFileMode, nil, 0, 0)
 }
 
 // FileGetStringsWithPattern reads a file and returns lines matching pattern.

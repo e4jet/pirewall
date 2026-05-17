@@ -27,24 +27,54 @@ import (
 	"github.com/e4jet/pirewall/internal/util"
 )
 
-// stubPaths lists the relative paths that Init creates under ~/.pirewall.
-var stubPaths = []string{
-	"etc/ddclient.conf",
-	"etc/dnsmasq.d/dhcp.conf",
-	"etc/dnsmasq.d/dns.conf",
-	"etc/iptables/rules.v4",
-	"etc/iptables/rules.v6",
-	"etc/netplan/01-network.yaml",
-	"etc/ssh/sshd_config",
-	"etc/sysctl.conf",
-	"etc/sysctl.d/90-override.conf",
-	"var/lib/misc/dnsmasq.leases",
+// TrackedPath is a relative path under ~/.pirewall that pirewall mirrors
+// between the live filesystem and the backup tree. Hint is the operator
+// command to reload the service that consumes Rel after a restore; an empty
+// Hint means no reload is required.
+type TrackedPath struct {
+	Rel  string
+	Hint string
 }
 
-// Init creates the stub directory structure under ~/.pirewall from stubPaths,
-// then initialises a git repository there. If git init fails due to missing
-// global user configuration, user.email and user.name are set automatically
-// using username@localhost.org and username before retrying.
+// trackedPaths is the canonical list of paths pirewall mirrors. Init creates
+// a stub for each Rel under ~/.pirewall; restore.hintsFor uses Hint to print
+// reload guidance after a restore. Adding a row here is the single change
+// needed to track a new file end-to-end.
+var trackedPaths = []TrackedPath{
+	{Rel: "etc/ddclient.conf", Hint: "systemctl restart ddclient"},
+	{Rel: "etc/dnsmasq.d/dhcp.conf", Hint: "systemctl restart dnsmasq"},
+	{Rel: "etc/dnsmasq.d/dns.conf", Hint: "systemctl restart dnsmasq"},
+	{Rel: "etc/iptables/rules.v4", Hint: "systemctl restart netfilter-persistent"},
+	{Rel: "etc/iptables/rules.v6", Hint: "systemctl restart netfilter-persistent"},
+	{Rel: "etc/netplan/01-network.yaml", Hint: "netplan apply"},
+	{Rel: "etc/ssh/sshd_config", Hint: "systemctl restart ssh"},
+	{Rel: "etc/sysctl.conf", Hint: "sysctl --system"},
+	{Rel: "etc/sysctl.d/90-override.conf", Hint: "sysctl --system"},
+	{Rel: "var/lib/misc/dnsmasq.leases"},
+}
+
+// TrackedPaths returns a copy of the canonical tracked-path list.
+func TrackedPaths() []TrackedPath {
+	out := make([]TrackedPath, len(trackedPaths))
+	copy(out, trackedPaths)
+
+	return out
+}
+
+// trackedRels returns just the relative paths from trackedPaths, in order.
+func trackedRels() []string {
+	out := make([]string, len(trackedPaths))
+	for i, tp := range trackedPaths {
+		out[i] = tp.Rel
+	}
+
+	return out
+}
+
+// Init creates the stub directory structure under ~/.pirewall from
+// trackedPaths, then initialises a git repository there. If git init fails
+// due to missing global user configuration, user.email and user.name are set
+// automatically using username@localhost.org and username before retrying.
 // Existing files are not overwritten. The directory tree is chowned to
 // username after creation.
 func Init(ctx context.Context, username string) error {
@@ -53,7 +83,7 @@ func Init(ctx context.Context, username string) error {
 		return err
 	}
 
-	if err := initStubs(ctx, targetDir, stubPaths); err != nil {
+	if err := initStubs(ctx, targetDir, trackedRels()); err != nil {
 		return err
 	}
 

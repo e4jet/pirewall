@@ -39,10 +39,6 @@ const (
 type stringSlice []string
 
 func (s *stringSlice) String() string {
-	if s == nil {
-		return ""
-	}
-
 	return strings.Join(*s, ",")
 }
 
@@ -57,11 +53,11 @@ func main() {
 	configFlag := flag.Bool("config", false, "run installation and configuration")
 	backupFlag := flag.String("backup", "", "mirror live config files into ~`user`/.pirewall and commit to git")
 	restoreFlag := flag.String("restore", "", "restore live config files from ~`user`/.pirewall (preserves existing target mode and ownership)")
-	dryRunFlag := flag.Bool("dry-run", false, "with -restore: log actions but make no filesystem changes")
+	dryRunFlag := flag.Bool("dry-run", false, "only valid with -restore: log restore actions but make no filesystem changes; ignored otherwise")
 
 	var restorePaths stringSlice
 
-	flag.Var(&restorePaths, "restore-path", "with -restore: restrict to this relative path (repeatable)")
+	flag.Var(&restorePaths, "restore-path", "only valid with -restore: restrict restore to this relative path (repeatable); ignored otherwise")
 
 	flag.Parse()
 
@@ -69,6 +65,8 @@ func main() {
 		fmt.Printf("%s %s\n", me, version)
 		return
 	}
+
+	slog.Info("starting", "name", me, "version", version)
 
 	if *backupFlag != "" {
 		if err := backup.Init(context.Background(), *backupFlag); err != nil {
@@ -103,8 +101,6 @@ func main() {
 		flag.Usage()
 		return
 	}
-
-	slog.Info("starting", "name", me, "version", version)
 
 	if err := install(context.Background()); err != nil {
 		slog.Error("install failed", "err", err)
