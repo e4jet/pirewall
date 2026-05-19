@@ -282,6 +282,62 @@ chown -R youruser /home/youruser/.pirewall ...Success.
  create mode 100755 var/lib/misc/dnsmasq.leases
 ```
 
+### restore
+
+The `pirewall -restore <username>` combination copies regular files from `~<username>/.pirewall` back onto the live filesystem.  It is the inverse of `-backup` and is useful in two situations:
+
+- Recover from a bad edit by replaying the last known-good backup over `/etc`.
+- Bring up a fresh Raspberry Pi from an existing backup (e.g. a spare device or a hardware replacement).  Missing parent directories under `/` are created automatically with mode `0755`.
+
+Key behaviors:
+
+- Each destination file's existing mode and ownership are preserved.  If the destination does not yet exist, it is created `root:root` mode `0644`.
+- Symlinks are never followed.  A backup entry that is itself a symlink is rejected (when given via `-restore-path`) or skipped silently (during a full walk).
+- Zero-byte sources in the backup are skipped — restoring an empty file is almost never what you want.
+- `setuid`, `setgid`, and sticky bits are not preserved on the live target.
+- The `.git` directory inside the backup is skipped.
+- After a successful run, reload hints are printed for any tracked file that was restored (for example `systemctl restart dnsmasq` or `netplan apply`).  pirewall does not run these for you — they are a reminder to apply the new configuration.
+
+Restore everything from the backup:
+
+```bash
+sudo pirewall -restore youruser
+```
+
+Restore only specific files (the flag is repeatable, and each value is a path relative to `~<username>/.pirewall`):
+
+```bash
+sudo pirewall -restore youruser \
+  -restore-path etc/dnsmasq.d/dns.conf \
+  -restore-path etc/iptables/rules.v4
+```
+
+Preview what would happen without touching the filesystem:
+
+```bash
+sudo pirewall -restore youruser -dry-run
+```
+
+`-restore-path` and `-dry-run` are only meaningful with `-restore`; they are ignored otherwise.
+
+Example run:
+
+```bash
+$ sudo pirewall -restore youruser
+2026/05/04 23:34:18 INFO starting name=pirewall version=1.0.0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/ddclient.conf dst=/etc/ddclient.conf mode=0600 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/dnsmasq.d/dhcp.conf dst=/etc/dnsmasq.d/dhcp.conf mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/dnsmasq.d/dns.conf dst=/etc/dnsmasq.d/dns.conf mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/iptables/rules.v4 dst=/etc/iptables/rules.v4 mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/iptables/rules.v6 dst=/etc/iptables/rules.v6 mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/netplan/01-network.yaml dst=/etc/netplan/01-network.yaml mode=0600 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/ssh/sshd_config dst=/etc/ssh/sshd_config mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/sysctl.conf dst=/etc/sysctl.conf mode=0644 uid=0 gid=0
+2026/05/04 23:34:18 INFO restore complete; manual reload may be required hints="[systemctl restart ddclient systemctl restart dnsmasq systemctl restart netfilter-persistent netplan apply systemctl restart ssh sysctl --system]"
+```
+
+Run the printed hints to apply the restored configuration without rebooting.
+
 ### Tools
 
 #### bmon
