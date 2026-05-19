@@ -30,6 +30,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 )
@@ -183,12 +184,12 @@ func (c *Chain) rollback(ctx context.Context) {
 
 	completed := c.commands[:c.lastStep+1]
 
-	for i := len(completed) - 1; i >= 0; i-- {
-		if completed[i] == nil {
+	for _, runner := range slices.Backward(completed) {
+		if runner == nil {
 			continue
 		}
 
-		if rbErr := c.rollbackWithRetry(ctx, completed[i]); rbErr != nil {
+		if rbErr := c.rollbackWithRetry(ctx, runner); rbErr != nil {
 			c.rollbackErr = errors.Join(c.rollbackErr, rbErr)
 		}
 	}

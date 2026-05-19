@@ -35,6 +35,8 @@ const (
 	fanGPIOPin = "14"
 	// fanTempThreshold is the temperature in Celsius at which the fan turns on.
 	fanTempThreshold = "80"
+
+	unattendedUpgrades = "unattended-upgrades"
 )
 
 // RemoveUnwantedPackages purges OS packages that are not needed on a firewall.
@@ -58,7 +60,7 @@ func AddPackages(ctx context.Context) error {
 		&aptUpdate{},
 		&aptUpgrade{},
 		&aptInstall{[]string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent"}},
-		&aptInstall{[]string{"git", "unattended-upgrades", "apt-listchanges", "vlan"}},
+		&aptInstall{[]string{"git", unattendedUpgrades, "apt-listchanges", "vlan"}},
 		&createDdclientConf{},
 		&aptInstall{[]string{"netplan.io", "ddclient", "nload", "iftop"}},
 	).Execute(ctx)
@@ -69,8 +71,8 @@ func EnableNewServices(ctx context.Context) error {
 	slog.InfoContext(ctx, "👉 enabling new services")
 
 	return chain.NewChain(retries, retryDelay,
-		&startService{"unattended-upgrades"},
-		&enableService{"unattended-upgrades"},
+		&startService{unattendedUpgrades},
+		&enableService{unattendedUpgrades},
 	).Execute(ctx)
 }
 

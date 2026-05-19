@@ -37,7 +37,7 @@ Verify the checksum:
 
 ```bash
 $ sha512sum pirewall-1.0.0-linux-arm64.install
-b8d75e0c570b66d31dd401a927f549843db0678257d3131fc0354620d0f8e19b2ec6d89ce576a0d1e10ec9e1a27c5f19df8ccc1f65c1b225ce2e551e8ae76f7c pirewall-1.0.0-linux-arm64.install
+dadf5be9d50d28dcf051f235a332b1f08bc208b29c8012a2e697d16d03994bd7bd766204016611066d77589f490e15b6dff05c9da678283616c5caa0517b3225  pirewall-1.0.0-linux-arm64.install
 ```
 
 Install it:
@@ -180,8 +180,6 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 
 ## Project TODOs
 
-### Config
-
 - [X] Packages that are not needed are removed
 - [X] Packages that are needed are added
 - [X] New Services are started and enabled
@@ -192,7 +190,9 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 - [X] The kernel is configured for packet routing and safety
 - [X] The example configurations are included
 - [X] Device is configured
-- [ ] Automate service fixes
+- [X] Automate service fixes
+- [X] Backup config files with history (via git)
+- [X] Restore config files
 - [ ] Configure the network automatically
 - [ ] Basic QOS
 

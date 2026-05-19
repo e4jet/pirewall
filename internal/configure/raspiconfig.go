@@ -26,6 +26,7 @@ import (
 
 const (
 	raspiconfigBin = "/usr/bin/raspi-config"
+	nonint         = "nonint"
 )
 
 // screenBlanking controls whether the screen blanks after inactivity.
@@ -39,7 +40,7 @@ func (r *screenBlanking) Name() string {
 }
 
 func (r *screenBlanking) Run(ctx context.Context) (any, error) {
-	command := []string{"nonint", "do_blanking", r.setting}
+	command := []string{nonint, "do_blanking", r.setting}
 	out, _, err := util.ExecCommandOutput(ctx, raspiconfigBin, command)
 
 	return out, err
@@ -63,7 +64,7 @@ func (r *fanControl) Name() string {
 }
 
 func (r *fanControl) Run(ctx context.Context) (any, error) {
-	command := []string{"nonint", "do_fan", r.setting, r.pin, r.temp}
+	command := []string{nonint, "do_fan", r.setting, r.pin, r.temp}
 	out, _, err := util.ExecCommandOutput(ctx, raspiconfigBin, command)
 
 	return out, err
@@ -85,7 +86,7 @@ func (r *predictableNetNames) Name() string {
 }
 
 func (r *predictableNetNames) Run(ctx context.Context) (any, error) {
-	command := []string{"nonint", "do_net_names", r.setting}
+	command := []string{nonint, "do_net_names", r.setting}
 	out, _, err := util.ExecCommandOutput(ctx, raspiconfigBin, command)
 
 	return out, err
@@ -107,7 +108,7 @@ func (r *setLocale) Name() string {
 }
 
 func (r *setLocale) Run(ctx context.Context) (any, error) {
-	args := []string{"nonint", "do_change_locale", r.setting}
+	args := []string{nonint, "do_change_locale", r.setting}
 
 	if idx := strings.IndexByte(r.setting, '.'); idx >= 0 {
 		args = append(args, r.setting[idx+1:])
@@ -133,7 +134,7 @@ func (r *setTimezone) Name() string {
 }
 
 func (r *setTimezone) Run(ctx context.Context) (any, error) {
-	command := []string{"nonint", "do_change_timezone", r.setting}
+	command := []string{nonint, "do_change_timezone", r.setting}
 	out, _, err := util.ExecCommandOutput(ctx, raspiconfigBin, command)
 
 	return out, err
