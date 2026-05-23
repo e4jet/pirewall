@@ -37,7 +37,7 @@ Verify the checksum:
 
 ```bash
 $ sha512sum pirewall-1.0.0-linux-arm64.install
-dadf5be9d50d28dcf051f235a332b1f08bc208b29c8012a2e697d16d03994bd7bd766204016611066d77589f490e15b6dff05c9da678283616c5caa0517b3225  pirewall-1.0.0-linux-arm64.install
+fd72f46569dacc8461ef21b4a588d6292755b949dbb1f2d2a63a3d40787e03d24a8ce9397dd532f23f9a4724b5fa7128ac21d91d83a2a5e5295fbec2c3c96fed  pirewall-1.0.0-linux-arm64.install
 ```
 
 Install it:
@@ -193,6 +193,7 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 - [X] Automate service fixes
 - [X] Backup config files with history (via git)
 - [X] Restore config files
+- [X] Diagnostic report of services, iptables, and network
 - [ ] Configure the network automatically
 - [ ] Basic QOS
 
@@ -337,6 +338,61 @@ $ sudo pirewall -restore youruser
 ```
 
 Run the printed hints to apply the restored configuration without rebooting.
+
+### doctor
+
+`pirewall -doctor` prints a one-shot diagnostic report of the firewall's runtime state.  It does not change anything — it only reads system state and writes a report to stdout.
+
+The report has four sections:
+
+- **Network Interfaces** — output of `ip addr show` for every interface on the host.
+- **iptables** — output of `iptables -L -n -v` and `ip6tables -L -n -v`.  Requires root; if not run as root, this section is skipped with a notice.
+- **Services** — `systemctl is-active` for each service pirewall relies on (`dnsmasq`, `netfilter-persistent`, `unattended-upgrades`, `ddclient`, `sshd`, `systemd-networkd`, `systemd-timesyncd`).  Each line is marked `[OK]` (green) or `[FAIL]` (red); failures are followed by the `journalctl` command to inspect that service's logs.
+- **Public Network** — finds the default route, reports the WAN interface and its IPv4 address, prints the gateway, and resolves `example.com` against `1.1.1.1:53` to confirm external DNS is reachable.  Some checks are marked `[SKIP]` (yellow) when run as a non-root user.
+
+Run it as root to see every section in full:
+
+```bash
+sudo pirewall -doctor
+```
+
+Example run (abbreviated):
+
+```text
+$ sudo pirewall -doctor
+2026/05/23 09:14:02 INFO starting name=pirewall version=1.0.0
+
+=== 👉 Network Interfaces 👈 ===
+1: lo: <LOOPBACK,UP,LOWER_UP> ...
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> ...
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> ...
+
+=== 👉 iptables 👈 ===
+--- /usr/sbin/iptables ---
+Chain INPUT (policy DROP ...)
+...
+--- /usr/sbin/ip6tables ---
+Chain INPUT (policy DROP ...)
+...
+
+=== 👉 Services 👈 ===
+✅ [OK]  dnsmasq
+✅ [OK]  netfilter-persistent
+✅ [OK]  unattended-upgrades
+✅ [OK]  ddclient
+✅ [OK]  sshd
+✅ [OK]  systemd-networkd.service
+✅ [OK]  systemd-timesyncd.service
+
+=== 👉 Public Network 👈 ===
+✅ [OK]  WAN interface: eth0 (203.0.113.42)
+✅ [OK]  Gateway found: 203.0.113.1
+✅ [OK]  External DNS lookup: example.com → 93.184.216.34 (via 1.1.1.1:53)
+
+2026/05/23 09:14:03 INFO done name=pirewall
+```
+
+Color is emitted only when stdout is a TTY (and `TERM` is not `dumb`), so piping the report to a file or another command produces plain text.
 
 ### Tools
 

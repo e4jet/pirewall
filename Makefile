@@ -98,7 +98,7 @@ pirewall: debug test ; $(info $(A1) $@)
 
 .PHONY: installer
 installer: ; $(info $(A1) $@)
-	tar -cvzf install.tgz install
+	tar --no-xattrs -cvzf install.tgz install
 
 .PHONY: sfx
 sfx: pirewall ; $(info $(A1) $@)
@@ -107,7 +107,7 @@ sfx: pirewall ; $(info $(A1) $@)
 	@cp pirewall _sfx/
 	@cp install/bin/rebootOnWatchdog _sfx/bin/
 	@cp -r install/examples _sfx/
-	@tar czf _payload.tgz -C _sfx .
+	@tar --no-xattrs -czf _payload.tgz -C _sfx .
 	@cat install.sh _payload.tgz > pirewall-$(TAG)-linux-arm64.install
 	@chmod +x pirewall-$(TAG)-linux-arm64.install
 	@rm -rf _sfx _payload.tgz

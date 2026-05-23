@@ -25,6 +25,7 @@ import (
 
 	"github.com/e4jet/pirewall/internal/backup"
 	"github.com/e4jet/pirewall/internal/configure"
+	"github.com/e4jet/pirewall/internal/doctor"
 	"github.com/e4jet/pirewall/internal/restore"
 )
 
@@ -48,12 +49,23 @@ func (s *stringSlice) Set(v string) error {
 	return nil
 }
 
+// flags holds the parsed command-line flags passed to run.
+type flags struct {
+	config       bool
+	backup       string
+	restore      string
+	dryRun       bool
+	doctor       bool
+	restorePaths []string
+}
+
 func main() {
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	configFlag := flag.Bool("config", false, "run installation and configuration")
 	backupFlag := flag.String("backup", "", "mirror live config files into ~`user`/.pirewall and commit to git")
 	restoreFlag := flag.String("restore", "", "restore live config files from ~`user`/.pirewall (preserves existing target mode and ownership)")
 	dryRunFlag := flag.Bool("dry-run", false, "only valid with -restore: log restore actions but make no filesystem changes; ignored otherwise")
+	doctorFlag := flag.Bool("doctor", false, "print a diagnostic report of firewall services, iptables, and network interfaces")
 
 	var restorePaths stringSlice
 
@@ -68,46 +80,53 @@ func main() {
 
 	slog.Info("starting", "name", me, "version", version)
 
-	if *backupFlag != "" {
-		if err := backup.Init(context.Background(), *backupFlag); err != nil {
-			slog.Error("Init failed", "err", err)
-			os.Exit(fail)
-		}
-
-		if err := backup.Backup(context.Background(), *backupFlag); err != nil {
-			slog.Error("Backup failed", "err", err)
-			os.Exit(fail)
-		}
-
-		return
+	f := flags{
+		config:       *configFlag,
+		backup:       *backupFlag,
+		restore:      *restoreFlag,
+		dryRun:       *dryRunFlag,
+		doctor:       *doctorFlag,
+		restorePaths: []string(restorePaths),
 	}
 
-	if *restoreFlag != "" {
-		opts := restore.Options{
-			Username: *restoreFlag,
-			Paths:    []string(restorePaths),
-			DryRun:   *dryRunFlag,
-		}
-
-		if err := restore.Restore(context.Background(), opts); err != nil {
-			slog.Error("Restore failed", "err", err)
-			os.Exit(fail)
-		}
-
-		return
-	}
-
-	if !*configFlag {
-		flag.Usage()
-		return
-	}
-
-	if err := install(context.Background()); err != nil {
-		slog.Error("install failed", "err", err)
+	if err := run(context.Background(), f); err != nil {
+		slog.Error("run failed", "err", err)
 		os.Exit(fail)
 	}
 
 	slog.Info("done", "name", me)
+}
+
+func run(ctx context.Context, f flags) error {
+	if f.doctor {
+		return doctor.Run(ctx, os.Stdout)
+	}
+
+	if f.backup != "" {
+		if err := backup.Init(ctx, f.backup); err != nil {
+			return fmt.Errorf("init: %w", err)
+		}
+
+		return backup.Backup(ctx, f.backup)
+	}
+
+	if f.restore != "" {
+		opts := restore.Options{
+			Username: f.restore,
+			Paths:    f.restorePaths,
+			DryRun:   f.dryRun,
+		}
+
+		return restore.Restore(ctx, opts)
+	}
+
+	if !f.config {
+		flag.Usage()
+
+		return nil
+	}
+
+	return install(ctx)
 }
 
 func install(ctx context.Context) error {
