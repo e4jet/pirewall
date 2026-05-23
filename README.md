@@ -28,17 +28,16 @@ Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to install 
 ### 2. Download and install pirewall
 
 After booting the Pi, download the installer:
+[available here](https://github.com/e4jet/pirewall/releases)
+
+Example:
 
 ```bash
-wget https://github.com/e4jet/pirewall/raw/refs/heads/main/pirewall-1.0.0-linux-arm64.install
+wget https://github.com/e4jet/pirewall/releases/download/v1.0.1/pirewall-v1.0.1-linux-arm64.install
 ```
 
 Verify the checksum:
-
-```bash
-$ sha512sum pirewall-v1.0.1-linux-arm64.install
-5635641efa25aa1bc550513f508efc80031826fb66b4e0cf545865e861f552c178977c61239225b47a6b940431a0ee7b1abb540d61f5ac73bfbd852441583e45  pirewall-v1.0.1-linux-arm64.install
-```
+[available here](https://github.com/e4jet/pirewall/releases)
 
 Install it:
 
