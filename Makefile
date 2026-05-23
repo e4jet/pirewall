@@ -24,7 +24,7 @@
 
 GO_VERSION = 1.26
 PACKAGE_ROOT = github.com/e4jet/pirewall
-TAG = 1.0.0
+TAG = v1.0.1
 GOOS=linux
 GOARCH=arm64
 
@@ -111,5 +111,5 @@ sfx: pirewall ; $(info $(A1) $@)
 	@cat install.sh _payload.tgz > pirewall-$(TAG)-linux-arm64.install
 	@chmod +x pirewall-$(TAG)-linux-arm64.install
 	@rm -rf _sfx _payload.tgz
-	@sha512sum pirewall-1.0.0-linux-arm64.install
+	@sha512sum pirewall-$(TAG)-linux-arm64.install
 	@echo "$(A2) $(S0)"

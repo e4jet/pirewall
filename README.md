@@ -36,8 +36,8 @@ wget https://github.com/e4jet/pirewall/raw/refs/heads/main/pirewall-1.0.0-linux-
 Verify the checksum:
 
 ```bash
-$ sha512sum pirewall-1.0.0-linux-arm64.install
-fd72f46569dacc8461ef21b4a588d6292755b949dbb1f2d2a63a3d40787e03d24a8ce9397dd532f23f9a4724b5fa7128ac21d91d83a2a5e5295fbec2c3c96fed  pirewall-1.0.0-linux-arm64.install
+$ sha512sum pirewall-v1.0.1-linux-arm64.install
+5635641efa25aa1bc550513f508efc80031826fb66b4e0cf545865e861f552c178977c61239225b47a6b940431a0ee7b1abb540d61f5ac73bfbd852441583e45  pirewall-v1.0.1-linux-arm64.install
 ```
 
 Install it:
