@@ -118,7 +118,7 @@ $ sudo pirewall -config
 2026/03/09 22:14:25 INFO command succeeded cmd=/usr/bin/apt-get
 2026/03/09 22:14:25 INFO running cmd="/usr/bin/apt-get install -yqq vlan"
 2026/03/09 22:14:28 INFO command succeeded cmd=/usr/bin/apt-get
-2026/03/09 22:14:28 INFO running cmd="/usr/bin/apt-get install -yqq netplan.io"
+2026/03/09 22:14:28 INFO running cmd="/usr/bin/apt-get install -yqq ifupdown"
 2026/03/09 22:14:31 INFO command succeeded cmd=/usr/bin/apt-get
 2026/03/09 22:14:31 INFO running cmd="/usr/bin/apt-get install -yqq ddclient"
 2026/03/09 22:14:33 INFO command succeeded cmd=/usr/bin/apt-get
@@ -148,7 +148,7 @@ $ sudo pirewall -config
 
 Copy the files from the [examples directory](#examples) to their destinations on the Pi.  At minimum you will need:
 
-- Network config: [01-network.yaml](install/examples/01-network.yaml) → `/etc/netplan/`
+- Network config: [interfaces](install/examples/interfaces) → `/etc/network/interfaces`
 - Firewall rules: [rules.v4](install/examples/rules.v4) and [rules.v6](install/examples/rules.v6) → `/etc/iptables/`
 - DNS/DHCP: [dns.conf](install/examples/dns.conf) and [dhcp.conf](install/examples/dhcp.conf) → `/etc/dnsmasq.d/`
 
@@ -208,12 +208,12 @@ The examples directory contains configuration file templates.  Copy and edit eac
   - copy to `/etc/dnsmasq.d`
 - [dhcp.conf](install/examples/dhcp.conf) — basic DHCP settings for dnsmasq
   - copy to `/etc/dnsmasq.d`
-- [01-network.yaml](install/examples/01-network.yaml) — basic 2-interface network config; one interface uses a static IP (internal), the other uses DHCP (ISP/public)
-  - copy to `/etc/netplan`
+- [interfaces](install/examples/interfaces) — basic 2-interface network config (plus a VLAN); one interface uses a static IP (internal), the other uses DHCP (ISP/public)
+  - copy to `/etc/network/interfaces`
 
-## netplan
+## network configuration
 
-[Raspberry Pi OS](https://www.raspberrypi.com/software/) comes with [Network Manager](https://networkmanager.dev/).  [NetPlan](https://netplan.readthedocs.io/en/stable/) can use Network Manager as a backend.  This project uses [NetPlan](https://netplan.readthedocs.io/en/stable/) for interface management, which makes it straightforward to configure advanced features like VLANs and bridges.
+[Raspberry Pi OS](https://www.raspberrypi.com/software/) ships with [Network Manager](https://networkmanager.dev/) by default.  This project uses Debian's classic `ifupdown` stack via `/etc/network/interfaces`, with the `vlan` package providing 802.1Q VLAN support through the `vlan-raw-device` directive.  `ifupdown` brings up interfaces declared in `/etc/network/interfaces`; Network Manager leaves those interfaces alone, so the two coexist.
 
 ## iptables
 
@@ -294,7 +294,7 @@ Example run:
 
 ```bash
 $ sudo pirewall -backup youruser
-cp /etc/netplan/01-network.yaml /home/youruser/.pirewall/etc/netplan/01-network.yaml  ...Success.
+cp /etc/network/interfaces /home/youruser/.pirewall/etc/network/interfaces  ...Success.
 cp /etc/sysctl.conf /home/youruser/.pirewall/etc/sysctl.conf  ...Success.
 cp /etc/ddclient.conf /home/youruser/.pirewall/etc/ddclient.conf  ...Success.
 cp /etc/dnsmasq.d/host.local /home/youruser/.pirewall/etc/dnsmasq.d/host.local  ...Success.
@@ -313,7 +313,7 @@ chown -R youruser /home/youruser/.pirewall ...Success.
  create mode 100755 etc/dnsmasq.d/host.local
  create mode 100755 etc/iptables/rules.v4
  create mode 100755 etc/iptables/rules.v6
- create mode 100755 etc/netplan/01-network.yaml
+ create mode 100755 etc/network/interfaces
  create mode 100755 etc/ssh/sshd_config
  create mode 100755 etc/sysctl.conf
  create mode 100755 var/lib/misc/dnsmasq.leases
@@ -333,7 +333,7 @@ Key behaviors:
 - Zero-byte sources in the backup are skipped — restoring an empty file is almost never what you want.
 - `setuid`, `setgid`, and sticky bits are not preserved on the live target.
 - The `.git` directory inside the backup is skipped.
-- After a successful run, reload hints are printed for any tracked file that was restored (for example `systemctl restart dnsmasq` or `netplan apply`).  pirewall does not run these for you — they are a reminder to apply the new configuration.
+- After a successful run, reload hints are printed for any tracked file that was restored (for example `systemctl restart dnsmasq` or `systemctl restart networking`).  pirewall does not run these for you — they are a reminder to apply the new configuration.
 
 Restore everything from the backup:
 
@@ -367,10 +367,10 @@ $ sudo pirewall -restore youruser
 2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/dnsmasq.d/dns.conf dst=/etc/dnsmasq.d/dns.conf mode=0644 uid=0 gid=0
 2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/iptables/rules.v4 dst=/etc/iptables/rules.v4 mode=0644 uid=0 gid=0
 2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/iptables/rules.v6 dst=/etc/iptables/rules.v6 mode=0644 uid=0 gid=0
-2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/netplan/01-network.yaml dst=/etc/netplan/01-network.yaml mode=0600 uid=0 gid=0
+2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/network/interfaces dst=/etc/network/interfaces mode=0600 uid=0 gid=0
 2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/ssh/sshd_config dst=/etc/ssh/sshd_config mode=0644 uid=0 gid=0
 2026/05/04 23:34:18 INFO restoring src=/home/youruser/.pirewall/etc/sysctl.conf dst=/etc/sysctl.conf mode=0644 uid=0 gid=0
-2026/05/04 23:34:18 INFO restore complete; manual reload may be required hints="[systemctl restart ddclient systemctl restart dnsmasq systemctl restart netfilter-persistent netplan apply systemctl restart ssh sysctl --system]"
+2026/05/04 23:34:18 INFO restore complete; manual reload may be required hints="[systemctl restart ddclient systemctl restart dnsmasq systemctl restart netfilter-persistent systemctl restart networking systemctl restart ssh sysctl --system]"
 ```
 
 Run the printed hints to apply the restored configuration without rebooting.

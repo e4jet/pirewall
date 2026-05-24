@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	aptgetBin = "/usr/bin/apt-get"
+	aptgetBin              = "/usr/bin/apt-get"
+	debconfSetSelectionBin = "/usr/bin/debconf-set-selections"
 )
 
 // trimPackages uses apt-get purge to remove unnecessary OS packages.
@@ -47,6 +48,45 @@ func (t *trimPackages) Run(ctx context.Context) (any, error) {
 
 func (t *trimPackages) Rollback(_ context.Context) error {
 	// no op, we don't reinstall packages...
+	return nil
+}
+
+// preseedIptablesPersistent preseeds debconf so the subsequent
+// iptables-persistent install does not prompt about saving the current IPv4
+// and IPv6 rule sets.
+type preseedIptablesPersistent struct{}
+
+func (p *preseedIptablesPersistent) Name() string {
+	return "preseedIptablesPersistent"
+}
+
+func (p *preseedIptablesPersistent) Run(ctx context.Context) (any, error) {
+	f, err := os.CreateTemp("", "iptables-persistent-*.seed")
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	selections := "iptables-persistent iptables-persistent/autosave_v4 boolean true\n" +
+		"iptables-persistent iptables-persistent/autosave_v6 boolean true\n"
+
+	if _, err := f.WriteString(selections); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+
+	out, _, err := util.ExecCommandOutput(ctx, debconfSetSelectionBin, []string{f.Name()})
+
+	return out, err
+}
+
+func (p *preseedIptablesPersistent) Rollback(_ context.Context) error {
+	// no op, selections are consumed by the subsequent apt install
 	return nil
 }
 

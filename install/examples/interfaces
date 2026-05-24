@@ -1,0 +1,19 @@
+# pirewall example /etc/network/interfaces
+#
+# Copy this file to /etc/network/interfaces, edit the addresses/interface
+# names for your host, then apply with:
+#   systemctl restart networking
+#
+# Requires the `ifupdown` and `vlan` packages (installed by pirewall -config).
+
+auto end0
+iface end0 inet static
+    address 10.10.10.1/24
+
+auto enx6c6e569230aa
+iface enx6c6e07179faa inet dhcp
+
+auto vlan2
+iface vlan2 inet static
+    address 10.10.20.1/24
+    vlan-raw-device end0

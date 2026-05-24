@@ -46,7 +46,7 @@ var trackedPaths = []TrackedPath{
 	{Rel: "etc/dnsmasq.d/dns.conf", Hint: "systemctl restart dnsmasq"},
 	{Rel: "etc/iptables/rules.v4", Hint: "systemctl restart netfilter-persistent"},
 	{Rel: "etc/iptables/rules.v6", Hint: "systemctl restart netfilter-persistent"},
-	{Rel: "etc/netplan/01-network.yaml", Hint: "netplan apply"},
+	{Rel: "etc/network/interfaces", Hint: "systemctl restart networking"},
 	{Rel: "etc/ssh/sshd_config", Hint: "systemctl restart ssh"},
 	{Rel: "etc/sysctl.conf", Hint: "sysctl --system"},
 	{Rel: "etc/sysctl.d/90-override.conf", Hint: "sysctl --system"},

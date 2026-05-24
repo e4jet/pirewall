@@ -59,10 +59,12 @@ func AddPackages(ctx context.Context) error {
 	return chain.NewChain(retries, retryDelay,
 		&aptUpdate{},
 		&aptUpgrade{},
-		&aptInstall{[]string{"bmon", "dnsmasq", "dnsutils", "iptables-persistent"}},
+		&aptInstall{[]string{"bmon", "dnsmasq", "dnsutils", "ifupdown"}},
+		&preseedIptablesPersistent{},
+		&aptInstall{[]string{"iptables-persistent"}},
 		&aptInstall{[]string{"git", unattendedUpgrades, "apt-listchanges", "vlan"}},
 		&createDdclientConf{},
-		&aptInstall{[]string{"netplan.io", "ddclient", "nload", "iftop"}},
+		&aptInstall{[]string{"ifupdown", "ddclient", "nload", "iftop"}},
 	).Execute(ctx)
 }
 

@@ -43,12 +43,12 @@ func TestHintsFor(t *testing.T) {
 			name: "multiple distinct hints in input order",
 			in: []string{
 				"etc/dnsmasq.d/dns.conf",
-				"etc/netplan/01-network.yaml",
+				"etc/network/interfaces",
 				"etc/sysctl.conf",
 			},
 			want: []string{
 				"systemctl restart dnsmasq",
-				"netplan apply",
+				"systemctl restart networking",
 				"sysctl --system",
 			},
 		},
