@@ -33,7 +33,7 @@ After booting the Pi, download the installer:
 Example:
 
 ```bash
-wget https://github.com/e4jet/pirewall/releases/download/v1.0.1/pirewall-v1.0.1-linux-arm64.install
+wget https://github.com/e4jet/pirewall/releases/download/v1.0.1/pirewall-v1.0.2-linux-arm64.install
 ```
 
 Verify the checksum:

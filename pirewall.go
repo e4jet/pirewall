@@ -31,7 +31,7 @@ import (
 
 const (
 	me      = "pirewall"
-	version = "v1.0.1"
+	version = "v1.0.2"
 	fail    = 3
 )
 
