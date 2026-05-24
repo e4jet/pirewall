@@ -54,16 +54,42 @@ func (c *configSysCtl) Run(ctx context.Context) (any, error) {
 	}
 
 	settings := []string{
+		// Network: reverse-path filtering, SYN cookies, routing.
 		"net.ipv4.conf.default.rp_filter=1",
 		"net.ipv4.conf.all.rp_filter=1",
 		"net.ipv4.tcp_syncookies=1",
 		"net.ipv4.ip_forward=1",
+
+		// Network: ignore ICMP redirects, do not send them, reject source routing.
 		"net.ipv4.conf.all.accept_redirects=0",
 		"net.ipv6.conf.all.accept_redirects=0",
 		"net.ipv4.conf.all.send_redirects=0",
 		"net.ipv4.conf.all.accept_source_route=0",
 		"net.ipv6.conf.all.accept_source_route=0",
 		"net.ipv4.conf.all.log_martians=1",
+
+		// Mirror the all.* settings to default.* so interfaces brought up
+		// later (vlans, USB hot-plug) inherit the same posture.
+		"net.ipv4.conf.default.accept_redirects=0",
+		"net.ipv6.conf.default.accept_redirects=0",
+		"net.ipv4.conf.default.send_redirects=0",
+		"net.ipv4.conf.default.accept_source_route=0",
+		"net.ipv6.conf.default.accept_source_route=0",
+		"net.ipv4.conf.default.log_martians=1",
+
+		// ICMP / broadcast hardening.
+		"net.ipv4.icmp_echo_ignore_broadcasts=1",
+		"net.ipv4.icmp_ignore_bogus_error_responses=1",
+
+		// Kernel info-leak hardening.
+		"kernel.dmesg_restrict=1",
+		"kernel.kptr_restrict=2",
+		"kernel.yama.ptrace_scope=1",
+
+		// Filesystem hardening.
+		"fs.protected_hardlinks=1",
+		"fs.protected_symlinks=1",
+		"fs.suid_dumpable=0",
 	}
 
 	sysctlData, err := util.FileGetStrings(c.sysctlFile())

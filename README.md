@@ -239,6 +239,43 @@ When an internal host sends a packet to the public network, the FORWARD table ha
 
 [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) is a lightweight, versatile tool for DNS and DHCP in small to medium-sized networks.  It is installed and ready to be configured via the files in [install/examples/](install/examples/).
 
+## sysctl
+
+pirewall hardens the kernel's networking stack by writing the settings below.  Where the settings are written depends on the OS version:
+
+- **Trixie (Debian 13) and later** — `/usr/lib/sysctl.d/50-default.conf` is present, so pirewall writes a clean drop-in file at `/etc/sysctl.d/90-override.conf`.  The `90-` prefix ensures these settings take precedence over any earlier defaults at boot.
+- **Bookworm (Debian 12) and earlier** — the drop-in directory convention is not in use, so pirewall merges the settings directly into `/etc/sysctl.conf`, replacing any matching keys (including commented-out lines) and appending new ones at the end.
+
+**Network**
+
+| Setting | Effect |
+|---|---|
+| `net.ipv4.conf.*.rp_filter=1` | Reverse-path filtering — drops packets whose source address has no route back through the arriving interface, preventing IP spoofing. |
+| `net.ipv4.tcp_syncookies=1` | Enables SYN cookies to defend against SYN-flood DoS attacks. |
+| `net.ipv4.ip_forward=1` | Enables kernel packet forwarding between interfaces — required for NAT and routing. |
+| `net.ipv4/6.conf.{all,default}.accept_redirects=0` | Ignores ICMP redirect messages, which could otherwise be used to reroute traffic maliciously.  Applied to both currently-attached and future interfaces. |
+| `net.ipv4.conf.{all,default}.send_redirects=0` | Stops the kernel from sending ICMP redirects — appropriate for a router that should not leak topology. |
+| `net.ipv4/6.conf.{all,default}.accept_source_route=0` | Rejects packets with IP source-routing options set, a legacy feature used in some attacks. |
+| `net.ipv4.conf.{all,default}.log_martians=1` | Logs packets with impossible or spoofed source addresses to the kernel log for visibility. |
+| `net.ipv4.icmp_echo_ignore_broadcasts=1` | Ignores ICMP echo requests sent to broadcast addresses — mitigates smurf-style amplification attacks. |
+| `net.ipv4.icmp_ignore_bogus_error_responses=1` | Ignores malformed ICMP error responses, reducing log noise from misbehaving hosts. |
+
+**Kernel info-leak hardening**
+
+| Setting | Effect |
+|---|---|
+| `kernel.dmesg_restrict=1` | Restricts the kernel ring buffer (`dmesg`) to root, hiding boot-time addresses and driver detail from local users. |
+| `kernel.kptr_restrict=2` | Hides kernel pointer addresses in `/proc` from all users, defeating a common precursor to local privilege-escalation exploits. |
+| `kernel.yama.ptrace_scope=1` | Limits `ptrace` to a process's own descendants (or `CAP_SYS_PTRACE`), preventing one user process from inspecting another. |
+
+**Filesystem hardening**
+
+| Setting | Effect |
+|---|---|
+| `fs.protected_hardlinks=1` | Blocks hardlink TOCTOU attacks against world-writable directories like `/tmp`. |
+| `fs.protected_symlinks=1` | Blocks symlink TOCTOU attacks against world-writable directories. |
+| `fs.suid_dumpable=0` | Disables core dumps from setuid binaries, preventing leakage of privileged process memory. |
+
 ## ddclient
 
 [ddclient](https://ddclient.net/) updates dynamic DNS records automatically when your public IP changes — useful when your ISP does not provide a static IP.  It is installed and ready to be configured.
