@@ -64,7 +64,7 @@ func AddPackages(ctx context.Context) error {
 		&aptInstall{[]string{"iptables-persistent"}},
 		&aptInstall{[]string{"git", unattendedUpgrades, "apt-listchanges", "vlan"}},
 		&createDdclientConf{},
-		&aptInstall{[]string{"ifupdown", "ddclient", "nload", "iftop"}},
+		&aptInstall{[]string{"ddclient", "nload", "iftop"}},
 	).Execute(ctx)
 }
 
@@ -110,7 +110,7 @@ func ConfigRaspi(ctx context.Context) error {
 	return chain.NewChain(retries, retryDelay,
 		&screenBlanking{setting: "0"},
 		&fanControl{setting: "0", pin: fanGPIOPin, temp: fanTempThreshold},
-		&predictableNetNames{setting: "0"},
+		&predictableNetNames{setting: "1"},
 		&setLocale{setting: defaultLocale},
 		&setTimezone{setting: defaultTimezone},
 	).Execute(ctx)
