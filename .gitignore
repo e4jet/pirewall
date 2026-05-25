@@ -3,3 +3,4 @@
 configure/__debug_bin*
 pirewall
 pirewall.coverprofile
+*.install

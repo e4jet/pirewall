@@ -33,7 +33,7 @@ After booting the Pi, download the installer:
 Example:
 
 ```bash
-wget https://github.com/e4jet/pirewall/releases/download/v1.0.1/pirewall-v1.0.2-linux-arm64.install
+wget https://github.com/e4jet/pirewall/releases/download/v1.0.2/pirewall-v1.0.2-linux-arm64.install
 ```
 
 Verify the checksum:
@@ -156,14 +156,14 @@ Edit each file to match your network before applying.
 
 ### 5. Set up config backup
 
-Initialize a git repo for config backups (replace `youruser` with your username):
-
-Add entries to root's crontab (`sudo crontab -e`) to back up the config and watch for network watchdog errors:
+Add entries to root's crontab (`sudo crontab -e`) to back up the config and watch for network watchdog errors (replace `youruser` with your username):
 
 ```crontab
 * * * * * /usr/local/bin/pirewall -backup youruser > /tmp/backupConfig 2>&1
 * * * * * /home/youruser/bin/rebootOnWatchdog > /var/tmp/rebootOnWatchdog 2>&1
 ```
+
+The first `-backup` run also initializes `~youruser/.pirewall` as a git repo and lays down stubs for the tracked files — see the [backup](#backup) section for what's tracked, how to add files, and the trust caveat.
 
 ## Why Build This?
 
@@ -288,7 +288,38 @@ pirewall hardens the kernel's networking stack by writing the settings below.  W
 
 ### backup
 
-The `pirewall -backup <username>` combination copies live config files into `~<username>/.pirewall` and commits them to git.  To add a file to the backup, touch the corresponding file in the ~/.pirewall directory.  Make sure you trust the user that this is configured for, they can get access to any file using this process.
+`pirewall -backup <username>` mirrors live config files into `~<username>/.pirewall` and commits the result to a git repository there.  It is designed to be run repeatedly (typically from cron) so that every change to the firewall's configuration is captured with history.
+
+The first invocation also performs one-time setup: it lays down an empty stub for each canonical tracked path under `~<username>/.pirewall`, runs `git init`, and — if global git identity is missing — sets `user.email` to `<username>@localhost.org` and `user.name` to `<username>` on the local repo so the auto-commit can succeed.  Subsequent runs skip any stub that already exists, so re-running is safe.
+
+> **Trust caveat:** the backup tree is owned by `<username>` and they will have read access to every file copied into it (`/etc/ssh/sshd_config`, iptables rules, dnsmasq config, etc.).  Only use a username you trust.
+
+Key behaviors:
+
+- The canonical tracked paths are defined in [internal/backup/init.go](internal/backup/init.go) as `trackedPaths`.  They cover the files pirewall configures out of the box (network, iptables, dnsmasq, ddclient, sshd, sysctl, dnsmasq leases).
+- To track an additional file, create an empty stub inside `~<username>/.pirewall` at the same relative path you want mirrored from `/`.  For example, to back up `/etc/crontab`, run `sudo touch ~<username>/.pirewall/etc/crontab` once.  The next `-backup` run will copy the live file over the stub.
+- Files are mirrored by walking the backup tree, not the live filesystem — only stubs that already exist in `~<username>/.pirewall` are populated.  This makes the backup set explicit and reviewable.
+- Source files that do not exist or are not regular files are silently skipped (a non-regular source is logged at info level; a missing source is logged at warn level).  Symlinks and special files are never followed.
+- The entire `~<username>/.pirewall` tree is chmod'd to `0700` and chowned recursively to `<username>` on each run.
+- After mirroring, `git add .` followed by `git commit -m "auto commit"` is run.  If `git status` reports nothing to commit, the commit step is skipped — running `-backup` on an unchanged firewall is a no-op.
+- The `.git` directory inside the backup is excluded from the mirror walk.
+
+Schedule it from root's crontab to capture changes automatically (replace `youruser` with your username):
+
+```bash
+sudo crontab -e
+```
+
+```crontab
+* * * * * /usr/local/bin/pirewall -backup youruser > /tmp/backupConfig 2>&1
+```
+
+Inspect the backup tree and its history like any other git repository:
+
+```bash
+sudo -u youruser git -C ~youruser/.pirewall log --oneline
+sudo -u youruser git -C ~youruser/.pirewall diff HEAD~1
+```
 
 Example run:
 
