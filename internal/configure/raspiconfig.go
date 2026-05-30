@@ -76,7 +76,10 @@ func (r *fanControl) Rollback(_ context.Context) error {
 
 // predictableNetNames controls whether predictable network interface names
 // (e.g. enp3s0) are used.
-// setting: "0" = predictable names disabled (uses eth0/wlan0 style), "1" = enabled.
+// setting:
+// "0" = predictable names disabled (uses eth0/wlan0 style)
+//
+//	1" = enabled (uses enx2334567b17eee style)
 type predictableNetNames struct {
 	setting string
 }

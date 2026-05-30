@@ -46,7 +46,7 @@ var services = []string{
 	"unattended-upgrades",
 	"ddclient",
 	"sshd",
-	"systemd-networkd.service",
+	"networking.service",
 	"systemd-timesyncd.service",
 }
 

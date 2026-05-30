@@ -19,16 +19,21 @@
 # find any errors, it returns 1.  If journalctl is successful (0),
 # we've found an issue, so we log it and reboot.
 
-journalctl -g 'NETDEV WATCHDOG' -p err --since "1 min ago" --no-pager
-if [ $? == 0 ] ; then
-	logger "Network watchdog, rebooting..."
+/usr/bin/journalctl -g 'NETDEV WATCHDOG' -p err --since "2 min ago" --no-pager
+if [ $? != 1 ] ; then
+	/usr/bin/logger "Network watchdog, rebooting..."
 	/usr/sbin/init 6
 fi
 
-# Timing issues can cause sshd to not start.  This just makes sure.
-
-systemctl status sshd.service > /dev/null
+# Timing issues can cause things to not start.  This just makes sure.
+/usr/bin/systemctl is-active sshd.service > /dev/null
 if [ $? != 0 ] ; then
-	logger "Starting sshd..."
-	systemctl start sshd
+	/usr/bin/logger "Starting sshd..."
+	/usr/bin/systemctl start sshd
+fi
+
+/usr/bin/systemctl is-active dnsmasq.service > /dev/null
+if [ $? != 0 ] ; then
+	/usr/bin/logger "Starting dnsmasq..."
+	/usr/bin/systemctl start dnsmasq
 fi
