@@ -30,6 +30,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -101,5 +102,28 @@ func TestFailExecCommandOutput(t *testing.T) {
 			"expected", 999,
 			"got", rc,
 		)
+	}
+}
+
+func TestCommandError_ExposesExitCode(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	_, _, err := ExecCommandOutput(ctx, "false", []string{})
+	if err == nil {
+		t.Fatal("expected error from false")
+	}
+
+	var cerr *CommandError
+	if !errors.As(err, &cerr) {
+		t.Fatalf("expected *CommandError via errors.As; got %T: %v", err, err)
+	}
+
+	if cerr.ExitCode != 1 {
+		t.Errorf("ExitCode: got %d want 1", cerr.ExitCode)
+	}
+
+	if !strings.Contains(cerr.Error(), "rc=1") {
+		t.Errorf("Error() should include rc=1; got %q", cerr.Error())
 	}
 }

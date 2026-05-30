@@ -46,6 +46,29 @@ const (
 	FailedWithoutStatus = 888
 )
 
+// CommandError is returned by ExecCommandOutput when a started command exits
+// with a non-zero status. Callers can extract the exit code with errors.As:
+//
+//	var cerr *util.CommandError
+//	if errors.As(err, &cerr) { ... cerr.ExitCode ... }
+//
+// Err is the underlying *exec.ExitError; it is exposed via Unwrap so that
+// errors.Is and errors.As against *exec.ExitError continue to work on
+// values returned from this package.
+type CommandError struct {
+	Cmd      string
+	ExitCode int
+	Err      error
+}
+
+func (e *CommandError) Error() string {
+	return fmt.Sprintf("command %s rc=%d: %v", e.Cmd, e.ExitCode, e.Err)
+}
+
+func (e *CommandError) Unwrap() error {
+	return e.Err
+}
+
 func execCommandOutput(ctx context.Context, cmd string, args []string, stdinArgs []string, timeout int) (output string, returnCode int, err error) {
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
@@ -77,7 +100,7 @@ func execCommandOutput(ctx context.Context, cmd string, args []string, stdinArgs
 			rc := exitErr.ExitCode()
 			slog.ErrorContext(ctx, "command failed", "cmd", cmd, "rc", rc, "out", out)
 
-			return out, rc, fmt.Errorf("command %s rc=%d: %w", cmd, rc, err)
+			return out, rc, &CommandError{Cmd: cmd, ExitCode: rc, Err: err}
 		}
 
 		slog.ErrorContext(ctx, "command error", "cmd", cmd, "err", err)

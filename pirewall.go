@@ -30,10 +30,12 @@ import (
 )
 
 const (
-	me      = "pirewall"
-	version = "v1.0.2"
-	fail    = 3
+	me   = "pirewall"
+	fail = 3
 )
+
+// version is overridden at build time via -ldflags "-X main.version=$(TAG)".
+var version = "dev"
 
 // stringSlice is a flag.Value that accepts a repeated flag (each occurrence
 // appends to the slice). Used for -restore-path.
@@ -142,6 +144,11 @@ func install(ctx context.Context) error {
 		return fmt.Errorf("AddPackages: %w", err)
 	}
 
+	rebootRequired, err := configure.MigrateToIfupdown(ctx)
+	if err != nil {
+		return fmt.Errorf("MigrateToIfupdown: %w", err)
+	}
+
 	if err := configure.EnableNewServices(ctx); err != nil {
 		return fmt.Errorf("EnableNewServices: %w", err)
 	}
@@ -154,5 +161,35 @@ func install(ctx context.Context) error {
 		return fmt.Errorf("ConfigSysCtl: %w", err)
 	}
 
+	if rebootRequired {
+		logRebootBanner(ctx)
+	}
+
 	return nil
+}
+
+// logRebootBanner prints a high-visibility multi-line reminder to stderr
+// and emits a one-line structured slog entry. Called only when
+// MigrateToIfupdown actually did work this run. stderr is used for the
+// multi-line form because slog handlers escape newlines and collapse the
+// banner into a single illegible line.
+func logRebootBanner(ctx context.Context) {
+	const banner = `
+================================================================
+REBOOT REQUIRED
+
+NetworkManager has been purged. Predictable network names take
+effect on next boot. Until you reboot, the new naming and the
+ifupdown-driven configuration are NOT active.
+
+Before rebooting, verify /etc/network/interfaces declares the
+interfaces you expect (under their post-reboot predictable names).
+Then run:
+
+    sudo reboot
+
+================================================================
+`
+	fmt.Fprint(os.Stderr, banner)
+	slog.InfoContext(ctx, "REBOOT REQUIRED — verify /etc/network/interfaces, then run `sudo reboot`")
 }

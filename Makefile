@@ -24,7 +24,7 @@
 
 GO_VERSION = 1.26
 PACKAGE_ROOT = github.com/e4jet/pirewall
-TAG = v1.0.2
+TAG = v1.0.2a
 GOOS=linux
 GOARCH=arm64
 
@@ -93,7 +93,7 @@ test: ; $(info $(A1) $@)
 
 pirewall: debug test ; $(info $(A1) $@)
 	@echo "$(A2) build pirewall"
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build pirewall.go
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-X main.version=$(TAG)" pirewall.go
 	@echo "$(A2) $(S0)"
 
 .PHONY: installer

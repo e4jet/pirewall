@@ -213,7 +213,9 @@ The examples directory contains configuration file templates.  Copy and edit eac
 
 ## network configuration
 
-[Raspberry Pi OS](https://www.raspberrypi.com/software/) ships with [Network Manager](https://networkmanager.dev/) by default.  This project uses Debian's classic `ifupdown` stack via `/etc/network/interfaces`, with the `vlan` package providing 802.1Q VLAN support through the `vlan-raw-device` directive.  `ifupdown` brings up interfaces declared in `/etc/network/interfaces`; Network Manager leaves those interfaces alone, so the two coexist.
+[Raspberry Pi OS](https://www.raspberrypi.com/software/) ships with [Network Manager](https://networkmanager.dev/) by default.  This project uses Debian's classic `ifupdown` stack via `/etc/network/interfaces`, with the `vlan` package providing 802.1Q VLAN support through the `vlan-raw-device` directive.  `pirewall -config` stops, disables, and purges Network Manager so `ifupdown` is the sole network-configuration mechanism; this requires a reboot to fully take effect because predictable interface names are also flipped on at install time.
+
+If `/etc/network/interfaces` is missing or only declares `lo` when `-config` runs, pirewall writes a safety-net file mirroring the current IPv4 state under post-reboot predictable names — enough to keep the box reachable across the reboot.  If you have already copied [the shipped example](install/examples/interfaces) and populated `/etc/network/interfaces`, pirewall leaves your file alone.
 
 ## iptables
 
