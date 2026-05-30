@@ -24,7 +24,7 @@
 
 GO_VERSION = 1.26
 PACKAGE_ROOT = github.com/e4jet/pirewall
-TAG = v1.0.2a
+TAG = v1.0.3
 GOOS=linux
 GOARCH=arm64
 
