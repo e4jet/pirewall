@@ -5,6 +5,9 @@
 :OUTPUT ACCEPT
 -A PREROUTING -i eth0 -p tcp -m tcp --dport 30303 -j DNAT --to-destination 10.10.10.10:30303
 -A POSTROUTING -o eth0 -j MASQUERADE
+#
+# Uncomment to NAT WireGuard VPN clients (192.168.192.0/24) out to the internet:
+#-A POSTROUTING -s 192.168.192.0/24 -o eth0 -j MASQUERADE
 COMMIT
 
 *filter
@@ -40,6 +43,12 @@ COMMIT
 # all packets routed by this device incoming on enxa000000000b7 or lo are jumped to the table named trusted
 -A FORWARD -i enxa000000000b7 -j trusted
 -A FORWARD -i lo -j trusted
+#
+# Uncomment to accept inbound WireGuard handshakes on UDP 51820 and to
+# forward VPN client traffic between wg0 and eth0:
+#-A INPUT -i eth0 -p udp --dport 51820 -j ACCEPT
+#-A FORWARD -i wg0 -o eth0 -j ACCEPT
+#-A FORWARD -i eth0 -o wg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 #
 # log everything else
 -A FORWARD -j LOG --log-prefix "dropped_FORWARD! "

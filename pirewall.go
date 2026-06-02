@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -27,6 +28,7 @@ import (
 	"github.com/e4jet/pirewall/internal/configure"
 	"github.com/e4jet/pirewall/internal/doctor"
 	"github.com/e4jet/pirewall/internal/restore"
+	"github.com/e4jet/pirewall/internal/wireguard"
 )
 
 const (
@@ -36,6 +38,11 @@ const (
 
 // version is overridden at build time via -ldflags "-X main.version=$(TAG)".
 var version = "dev"
+
+// errFlagConflict is returned when the user supplies mutually-exclusive
+// flag combinations. It is checked by run() and turned into a usage error
+// in main.
+var errFlagConflict = errors.New("conflicting flags")
 
 // stringSlice is a flag.Value that accepts a repeated flag (each occurrence
 // appends to the slice). Used for -restore-path.
@@ -59,6 +66,9 @@ type flags struct {
 	dryRun       bool
 	doctor       bool
 	restorePaths []string
+	wireguard    bool
+	wgEndpoint   string
+	wgAddClient  string
 }
 
 func main() {
@@ -68,6 +78,9 @@ func main() {
 	restoreFlag := flag.String("restore", "", "restore live config files from ~`user`/.pirewall (preserves existing target mode and ownership)")
 	dryRunFlag := flag.Bool("dry-run", false, "only valid with -restore: log restore actions but make no filesystem changes; ignored otherwise")
 	doctorFlag := flag.Bool("doctor", false, "print a diagnostic report of firewall services, iptables, and network interfaces")
+	wireguardFlag := flag.Bool("wireguard", false, "configure WireGuard server (install package, write /etc/wireguard/wg0.conf, enable wg-quick@wg0)")
+	wgEndpointFlag := flag.String("wg-endpoint", "", "host:port the WireGuard server advertises to clients; required with -wireguard on first run")
+	wgAddClientFlag := flag.String("wg-add-client", "", "add a WireGuard peer with this `name`; writes /etc/wireguard/clients/<name>.conf and prints it to stdout")
 
 	var restorePaths stringSlice
 
@@ -89,9 +102,18 @@ func main() {
 		dryRun:       *dryRunFlag,
 		doctor:       *doctorFlag,
 		restorePaths: []string(restorePaths),
+		wireguard:    *wireguardFlag,
+		wgEndpoint:   *wgEndpointFlag,
+		wgAddClient:  *wgAddClientFlag,
 	}
 
 	if err := run(context.Background(), f); err != nil {
+		if errors.Is(err, errFlagConflict) {
+			fmt.Fprintln(os.Stderr, err)
+			flag.Usage()
+			os.Exit(fail)
+		}
+
 		slog.Error("run failed", "err", err)
 		os.Exit(fail)
 	}
@@ -99,7 +121,25 @@ func main() {
 	slog.Info("done", "name", me)
 }
 
+// validateFlags rejects mutually-exclusive combinations. Returns
+// errFlagConflict (wrapped) so main() can convert to a usage error.
+func validateFlags(f flags) error {
+	if f.wireguard && f.wgAddClient != "" {
+		return fmt.Errorf("%w: -wireguard and -wg-add-client are mutually exclusive", errFlagConflict)
+	}
+
+	if f.wgEndpoint != "" && !f.wireguard {
+		return fmt.Errorf("%w: -wg-endpoint is only valid with -wireguard", errFlagConflict)
+	}
+
+	return nil
+}
+
 func run(ctx context.Context, f flags) error {
+	if err := validateFlags(f); err != nil {
+		return err
+	}
+
 	if f.doctor {
 		return doctor.Run(ctx, os.Stdout)
 	}
@@ -120,6 +160,14 @@ func run(ctx context.Context, f flags) error {
 		}
 
 		return restore.Restore(ctx, opts)
+	}
+
+	if f.wgAddClient != "" {
+		return wireguard.AddClient(ctx, wireguard.AddClientOptions{Name: f.wgAddClient}, os.Stdout)
+	}
+
+	if f.wireguard {
+		return wireguard.Configure(ctx, wireguard.ConfigureOptions{Endpoint: f.wgEndpoint})
 	}
 
 	if !f.config {

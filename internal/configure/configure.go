@@ -87,6 +87,8 @@ func DisableUnwantedServices(ctx context.Context) error {
 		&disableService{service: "bluetooth"},
 		&stopService{service: "sound.target"},
 		&disableService{service: "sound.target"},
+		&stopService{service: "wpa_supplicant"},
+		&disableService{service: "wpa_supplicant"},
 	).Execute(ctx)
 }
 

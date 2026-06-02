@@ -193,7 +193,8 @@ My provider doesn't support ipv6 yet, nor does it provide enough bandwidth to ma
 - [X] Backup config files with history (via git)
 - [X] Restore config files
 - [X] Diagnostic report of services, iptables, and network
-- [ ] Configure the network automatically
+- [X] Configure the network automatically
+- [ ] Provide optional VPN
 - [ ] Basic QOS
 
 ## Examples
@@ -281,6 +282,17 @@ pirewall hardens the kernel's networking stack by writing the settings below.  W
 ## ddclient
 
 [ddclient](https://ddclient.net/) updates dynamic DNS records automatically when your public IP changes — useful when your ISP does not provide a static IP.  It is installed and ready to be configured.
+
+## WireGuard
+
+`pirewall` can run a WireGuard server on `wg0`. Two flags control it:
+
+- `pirewall -wireguard -wg-endpoint=<host:port>` — installs the `wireguard` package, creates `/etc/wireguard/{privatekey,publickey,wg0.conf}` with the correct permissions, and enables + starts `wg-quick@wg0`. The `-wg-endpoint` value is the public `host:port` clients use to reach the tunnel (e.g. `home.example.org:51820`); it is required on the first run and persisted into `wg0.conf` as a `# Endpoint = …` comment. Re-runs are idempotent: existing keys and `wg0.conf` are left alone, permissions are tightened, and the service is re-enabled if needed.
+- `pirewall -wg-add-client=<name>` — generates a client keypair, allocates the lowest free address in `192.168.192.0/24` (server is `192.168.192.1`), appends a peer block to `wg0.conf`, writes `/etc/wireguard/clients/<name>.conf` (mode 0600), live-reloads the running tunnel via `wg syncconf`, and prints the client config to stdout. Pipe it through `qrencode -t ansiutf8` to scan into a phone, or copy it to the client device. The name must match `[A-Za-z0-9_-]{1,32}`.
+
+The VPN subnet is `192.168.192.0/24`. Clients get full-tunnel routing (`AllowedIPs = 0.0.0.0/0, ::/0`) and use the pirewall as their DNS resolver (`DNS = 192.168.192.1`), so dnsmasq filtering applies inside the tunnel.
+
+iptables rules are not automatically modified — `install/examples/rules.v4` ships commented WireGuard rules that you can uncomment and merge into your live `/etc/iptables/rules.v4` (then reload with `iptables-restore`).
 
 ## Utilities
 
